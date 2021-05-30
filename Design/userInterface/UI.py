@@ -13,7 +13,7 @@ REFRESH_AFTER = 1000 # 1000ms = 1 second
 
 
 class MyFrame(tk.Frame):
-    def __init__(self, master):
+    def __init__(self, master: tk.Tk) -> None:
         tk.Frame.__init__(self, master,
                           width=WINDOW_SIZE[0],
                           height=WINDOW_SIZE[1],
@@ -30,13 +30,13 @@ class MyFrame(tk.Frame):
     def showContent(self):
         pass
     
-    def delete(self):
+    def delete(self) -> None:
         self.grid_forget()
         self.destroy()
         
 
 class StartFrame(MyFrame):
-    def __init__(self, master, changeFrameFunc):
+    def __init__(self, master: tk.Tk, changeFrameFunc: function) -> None:
         super().__init__(master)
         self.__IMAGESIZE = (200,75)
         
@@ -66,7 +66,7 @@ class StartFrame(MyFrame):
                                 font=(FONT, 25),
                                 command=changeFrameFunc)
         
-    def showContent(self):
+    def showContent(self) -> None:
         self.__canvasForImage.grid(row=0)
         self._title.grid(row=1)
         self._infoMessage.grid(row=2)
@@ -74,7 +74,7 @@ class StartFrame(MyFrame):
 
 
 class StatusLabel:
-    def __init__(self, master, infoText):
+    def __init__(self, master: tk.Tk, infoText: str) -> None:
         self.__infoText = tk.Label(master,
                                    text=infoText +": ",
                                    font=(FONT, 25))
@@ -83,11 +83,11 @@ class StatusLabel:
                                      fg=RED,
                                      font=(FONT, 25))
     
-    def grid(self, row):
+    def grid(self, row: int) -> None:
         self.__infoText.grid(row=row, column=0)
         self.__statusText.grid(row=row, column=1)
         
-    def setStatus(self, status):
+    def setStatus(self, status: bool) -> None:
         self.__status = status
         if self.__status:
             self.__statusText.config(text="Passed",
@@ -98,7 +98,7 @@ class StatusLabel:
 
 
 class ValidationFrame(MyFrame):
-    def __init__(self, master, changeFrameFunc, retryFunc):
+    def __init__(self, master: tk.Tk, changeFrameFunc: function, retryFunc: function) -> None:
         super().__init__(master)
         self._title.config(text="Validation Screen")
         
@@ -129,7 +129,7 @@ class ValidationFrame(MyFrame):
                                                command=changeFrameFunc)
 
         
-    def setStatuses(self, allStatuses):
+    def setStatuses(self, allStatuses: list) -> None:
         self.__allValid = True
         self.__feedbackLabel.config(text="All inputs are valid!\n",
                                     fg=GREEN)
@@ -142,7 +142,7 @@ class ValidationFrame(MyFrame):
                 self.__feedbackLabel.config(text="Please do the necessary fixes\n",
                                             fg=RED)
         
-    def showContent(self):
+    def showContent(self) -> None:
         self._title.grid(row=0, columnspan=2)
         self._infoMessage.grid(row=1, columnspan=2)
         for i, statusLabel in enumerate(self.__statuses):
@@ -156,7 +156,7 @@ class ValidationFrame(MyFrame):
         
       
 class TrainingFrame(MyFrame):
-    def __init__(self, master, changeFrameFunc, stopLoop):
+    def __init__(self, master: tk.Tk, changeFrameFunc: function, stopLoop: function) -> None:
         super().__init__(master)
         # setting up Tkinter widgets
         self._title.config(text="Training Screen")
@@ -190,7 +190,7 @@ class TrainingFrame(MyFrame):
         self.__canvasGraph = None
         
         
-    def updateGraph(self, newData):
+    def updateGraph(self, newData: list) -> None:
         xList = []
         yList = []
         for x, y in newData:
@@ -203,7 +203,7 @@ class TrainingFrame(MyFrame):
         self.__canvasGraph = FigureCanvasTkAgg(self.__fig, master=self)
         self.__canvasGraph.draw()        
         
-    def showContent(self):
+    def showContent(self) -> None:
         self._title.grid(row=0, columnspan=2)
         self._infoMessage.grid(row=1, columnspan=2)
         if self.__canvasGraph is not None:
@@ -213,7 +213,7 @@ class TrainingFrame(MyFrame):
                 
 
 class MainApplication:
-    def __init__(self, master):
+    def __init__(self, master: tk.Tk) -> None:
         self.__master = master
         self.__master.minsize(width=WINDOW_SIZE[0],
                               height=WINDOW_SIZE[1])
@@ -225,7 +225,7 @@ class MainApplication:
         
         self.__currentFrame = self.__startFrame
         
-    def __changeToNextFrame(self):
+    def __changeToNextFrame(self) -> None:
         if self.__currentFrame == self.__startFrame:
             self.__currentFrame.delete()
             self.__currentFrame = self.__validationFrame
@@ -240,11 +240,11 @@ class MainApplication:
             self.__master.destroy()
             self.__endProgram()
             
-    def showCurrentFrame(self):
+    def showCurrentFrame(self) -> None:
         self.__currentFrame.pack()
         self.__currentFrame.showContent()
         
-    def __doValidationRoutine(self, toFail=False):
+    def __doValidationRoutine(self, toFail:bool=False) -> None:
         if toFail:
             output = [True, True, False, True]
         else:
@@ -252,7 +252,7 @@ class MainApplication:
         self.__validationFrame.setStatuses(output)
         self.showCurrentFrame()
         
-    def __doTrainingLoop(self):
+    def __doTrainingLoop(self) -> None:
         self.showCurrentFrame()
         # do the training
         print("trained")
@@ -270,10 +270,10 @@ class MainApplication:
         else:
             print("training stopped")
     
-    def __stopTraining(self):
+    def __stopTraining(self) -> None:
         self.__continueTraining = False
     
-    def __endProgram(self):
+    def __endProgram(self) -> None:
         print("Stopping Training loop...")
         self.__stopTraining()
         print("Closing Serial Ports...")
