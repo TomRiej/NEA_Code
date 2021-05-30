@@ -36,7 +36,7 @@ class MyFrame(tk.Frame):
         
 
 class StartFrame(MyFrame):
-    def __init__(self, master: tk.Tk, changeFrameFunc: function) -> None:
+    def __init__(self, master: tk.Tk, changeFrameFunc) -> None:
         super().__init__(master)
         self.__IMAGESIZE = (200,75)
         
@@ -98,7 +98,7 @@ class StatusLabel:
 
 
 class ValidationFrame(MyFrame):
-    def __init__(self, master: tk.Tk, changeFrameFunc: function, retryFunc: function) -> None:
+    def __init__(self, master: tk.Tk, changeFrameFunc, retryFunc) -> None:
         super().__init__(master)
         self._title.config(text="Validation Screen")
         
@@ -156,7 +156,7 @@ class ValidationFrame(MyFrame):
         
       
 class TrainingFrame(MyFrame):
-    def __init__(self, master: tk.Tk, changeFrameFunc: function, stopLoop: function) -> None:
+    def __init__(self, master: tk.Tk, changeFrameFunc, stopLoop) -> None:
         super().__init__(master)
         # setting up Tkinter widgets
         self._title.config(text="Training Screen")
