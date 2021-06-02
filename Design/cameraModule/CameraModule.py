@@ -7,12 +7,12 @@ from heapq import nsmallest
 
 class CameraInput:
     def __init__(self, greenRange: list, orangeRange: list) -> None:
-        # initialising OpenCV objects
+        # initializing OpenCV objects
         self.__cameraFeed = cv.VideoCapture(1)
-        self.__backgroundSubractor = cv.createBackgroundSubtractorMOG2(detectShadows=False)
+        self.__backgroundSubtractor = cv.createBackgroundSubtractorMOG2(detectShadows=False)
         self.__detector = cv.SimpleBlobDetector_create()
         
-        # getting image dimentions
+        # getting image dimensions
         self.__readFailure = True
         frame = self.__readFrame()
         if self.__readFailure: # frame needs to be read to get img size
@@ -32,7 +32,7 @@ class CameraInput:
             self.__greenRange = np.array(self.__greenRange)
             self.__orangeRange = np.array(self.__orangeRange)
         
-        # initialising empty Track locations
+        # initializing empty Track locations
         self.__trackLocations = {}
         self.__GREEN = 0
         self.__ORANGE = 1
@@ -72,14 +72,14 @@ class CameraInput:
         if self.__readFailure:
             return None, None
         
-        foreGroundMask = self.__backgroundSubractor.apply(frame)
+        foreGroundMask = self.__backgroundSubtractor.apply(frame)
         foreGroundMask = cv.blur(foreGroundMask, (5,5))
         meanX, meanY = self.__CalcAverageLocation(foreGroundMask)
         size = self.__width
         for _ in range(zoomDepth):
             size = int(size*zoomPerc)
                 
-            newForeGround, x1, y1 = self.__getZoomedMask(foreGroundMask, meanX, meanY, size)
+            newForeGround, x1, y1 = self.__getZoomedMask(foreGroundMask, meanX, meanY, size) # Try: should this not be newForeGround????
             meanX, meanY = self.__CalcAverageLocation(newForeGround)
             meanX += x1
             meanY += y1
@@ -174,7 +174,7 @@ class CameraInput:
                 print("Failed to train background")
                 return False
             else:
-                self.__backgroundSubractor.apply(frame)
+                self.__backgroundSubtractor.apply(frame)
                 
         print("Training complete")
         return True
@@ -186,10 +186,10 @@ class CameraInput:
         startCoords = self.__getCarLocation(zD,zP)
         endCoords = self.__getCarLocation(zD,zP)
         endTime = time()
-        ellapsedTime = endTime-startTime
+        elapsedTime = endTime-startTime
         
         info["carLocation"] = endCoords
-        info["carSpeed"] = self.__getCarSpeed(startCoords, endCoords, ellapsedTime)
+        info["carSpeed"] = self.__getCarSpeed(startCoords, endCoords, elapsedTime)
         info["nextTrackLoc"] = self.getNextTrackLocation(startCoords, endCoords)
         info["nextTrackLocDist"] = self.__getDistBetweenCoords(endCoords, info["nextTrackLoc"])
         info["nextTrackLocType"] = self.__trackLocations[info["nextTrackLoc"]]

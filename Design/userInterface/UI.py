@@ -27,7 +27,7 @@ class MyFrame(tk.Frame):
                                       font=(FONT,15),
                                       text= "info text")
         
-    def showContent(self):
+    def showContent(self): # to be overridden later
         pass
     
     def delete(self) -> None:
@@ -156,7 +156,7 @@ class ValidationFrame(MyFrame):
         
       
 class TrainingFrame(MyFrame):
-    def __init__(self, master: tk.Tk, changeFrameFunc, stopLoop) -> None:
+    def __init__(self, master: tk.Tk, changeFrameFunc, stopLoopFunc) -> None:
         super().__init__(master)
         # setting up Tkinter widgets
         self._title.config(text="Training Screen")
@@ -171,7 +171,7 @@ class TrainingFrame(MyFrame):
                                       text="STOP",
                                       fg=RED,
                                       font=(FONT, 25),
-                                      command=stopLoop)
+                                      command=stopLoopFunc)
         
         self.__endProgramButton = tk.Button(self,
                                                height=2,

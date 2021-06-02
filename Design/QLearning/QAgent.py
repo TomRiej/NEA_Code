@@ -87,7 +87,7 @@ if __name__ == '__main__':
         speed = action    
 
         # I could punish the car for standing still, but it would learn that taking other
-        # options should result in a higher result, so punishing it isnt neccesary
+        # options should result in a higher result, so punishing it isn't necessary
         
         if random() < state1/20:     # lower state (lower speeds) has less chance of deslotting
             if random() < action/20: # lower speed chosen = lower chance of deslotting
