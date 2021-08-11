@@ -8,7 +8,7 @@ BG_COLOUR = "#FFFFFF"
 RED = "#FF0000"
 GREEN = "#20CC20"
 FONT = "Verdana"
-PATH = "/Users/Tom/Desktop/CS-A-level/NEA/Media/"
+PATH = "/Users/Tom/Desktop/Education/CS-A-level/NEA/Media/"
 REFRESH_AFTER = 1000 # 1000ms = 1 second
 
 

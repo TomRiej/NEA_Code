@@ -36,13 +36,17 @@ class HallInput:
     
     def getDisplacement(self) -> int:
         return self.__displacement
+    
+    def closeSerial(self) -> None:
+        self.__ser.close()
             
-            
-# 10cm = 0.1 m           
-hallReader = HallInput(0.1)
+if __name__ == '__main__':
+      
+    # 10cm = 0.1 m           
+    hallReader = HallInput(0.1)
 
-for i in range(20):
-    hallReader.readSerialPort()
-    print(f"SensorNumber: {hallReader.getDisplacement()} Speed: {hallReader.getSpeed()}")
+    for i in range(20):
+        hallReader.readSerialPort()
+        print(f"SensorNumber: {hallReader.getDisplacement()} Speed: {hallReader.getSpeed()}")
 
 

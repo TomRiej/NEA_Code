@@ -38,14 +38,20 @@ class ServoController:
 #         sleep(1)
 #     controller.closeSerial()
 #     print()
-
-con = ServoController(0,180)
-for i in range(10):
-    con.setAngle(0)
-    sleep(1)
-    con.setAngle(70)
-    sleep(1)
-con.closeSerial()
+if __name__ == '__main__':
+    con = ServoController(40,90)
+    for i in range(10):
+        con.setAngle(50)
+        sleep(1)
+        con.setAngle(60)
+        sleep(1)
+        con.setAngle(70)
+        sleep(1)
+        con.setAngle(80)
+        sleep(1)
+        con.setAngle(90)
+        sleep(1)
+    con.closeSerial()
     
 
         
