@@ -32,7 +32,7 @@ LOGO_NAME = "FormulAI_Logo.png"
 # Stop angle
 # Slow speed angle
   # Q Learning
-# Params
+# Parameters
 
 
 class MyFrame(tk.Frame):
