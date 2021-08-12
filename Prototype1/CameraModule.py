@@ -48,14 +48,7 @@ class CameraInput:
         else:
             return False
         
-    # def showAFrame(self):
-    #     while True:
-    #         cv.imshow("Test Frame", self.__readFrame())
-    #         key = cv.waitKey(1)
-    #         if key == 27:
-    #             break 
-                
-        
+
     def __readFrame(self):
         successful, frame = self.__cameraFeed.read()
         if successful:
@@ -69,3 +62,12 @@ if __name__ == '__main__':
     for i in range(300):
         if cam.checkCameraIsConnected():
             print(i, "connected")
+            
+            
+            
+   # def showAFrame(self):
+    #     while True:
+    #         cv.imshow("Test Frame", self.__readFrame())
+    #         key = cv.waitKey(1)
+    #         if key == 27:
+    #             break 
