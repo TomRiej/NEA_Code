@@ -1,8 +1,9 @@
-# Import all User Interface Modules: Tkinter & additions
+# Import built in modules for the UI
 import tkinter as tk
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from threading import Thread
 
 # Import all my modules:
 from CameraModule import *
@@ -15,7 +16,8 @@ from CameraModule import *
 WINDOW_SIZE = (650,500)
 BG_COLOUR = "#FFFFFF"
 RED = "#FF0000"
-GREEN = "#20CC20"   
+GREEN = "#20CC20"  
+BLUE = "#0e6cc9"
 FONT = "Verdana"
 PATH = "/Users/Tom/Desktop/Education/CS-A-level/NEA/Media/"
 REFRESH_AFTER = 1000 # 1000ms = 1 second
@@ -25,8 +27,7 @@ GREEN_RANGE = [[80, 200, 160], [120, 255, 220]]
 ORANGE_RANGE = [[50, 110, 200], [90, 190, 255]]
 SAMPLE_ITERATIONS = 50
 DESLOT_THRESHOLD = 0
-# number of track locations
-
+NUM_TRACK_LOCATIONS = 6
   # Harware Input
 # Distance between magnets
 # Number of sensors
@@ -157,8 +158,7 @@ class ValidationFrame(MyFrame):
         
     def setStatuses(self, allStatuses: list) -> None:
         self.__allValid = True
-        self.__feedbackLabel.config(text="All inputs are valid!\n",
-                                    fg=GREEN)
+        # self.showFeedback("All inputs are valid!\n", GREEN)
         feedbackString = ""
         for i, statusLabel in enumerate(self.__statuses):
             if allStatuses[i]:
@@ -175,10 +175,11 @@ class ValidationFrame(MyFrame):
                 elif i == 3:
                     feedbackString += "Not all hall sensors gave an input:\nx / x were sensed\n"
                     
-                
-        if not self.__allValid:
-            self.__feedbackLabel.config(text=feedbackString + "Please do the necessary fixes\n",
-                                        fg=RED)
+        if self.__allValid:
+            self.showFeedback("All inputs are valid!\n", GREEN)       
+        else:
+            self.showFeedback(feedbackString+"Please do the necessary fixes\n",
+                              RED)
         
     def showContent(self) -> None:
         self._title.grid(row=0, columnspan=2)
@@ -191,6 +192,10 @@ class ValidationFrame(MyFrame):
             self.__startTrainingButton.grid(row=curRow+1, columnspan=2)
         else:
             self.__retryButton.grid(row=curRow+1, columnspan=2)
+            
+    def showFeedback(self, feedbackString, colour):
+        self.__feedbackLabel.config(text=feedbackString,
+                                    fg=colour)
         
       
 class TrainingFrame(MyFrame):
@@ -289,22 +294,23 @@ class FormulAI:
         self.__currentFrame.pack()
         self.__currentFrame.showContent()
         
-    def __validateCameraInput(self):
-        pass
-        
-    def __doValidationRoutine(self) -> None:
-        print("called")
-        output = [False for i in range(4)]
-        
-        # Camera input
-        output[0] = self.__camera.checkCameraIsConnected()
-        if output[0]:
-            output[1], output[2] = self.__camera.checkCarAndTrackLocationsFound(6)
-            
-            
-        
-        self.__validationFrame.setStatuses(output)
+    def __validateAllInputs(self):
+        self.__validationFrame.showFeedback("Validation routine executing...\nPlease wait\n",
+                                            BLUE)
+        self.__statuses[0] = self.__camera.checkCameraIsConnected()
+        if self.__statuses[0]:
+            self.__statuses[1], self.__statuses[2] = self.__camera.checkCarAndTrackLocationsFound(NUM_TRACK_LOCATIONS)
+        self.__statuses[3] = True
+        self.__validationFrame.setStatuses(self.__statuses) # [True for x in range(4)]
         self.showCurrentFrame()
+        
+    def __doValidationRoutine(self) -> None: # IMPROVE: maybe make all one target for thread
+        self.showCurrentFrame()
+        self.__statuses = [False for i in range(4)]
+        # Threading is required as the routine takes a while to complete (many frames taken and analysed)
+        # without threading, the GUI would freeze and be unusable until the routine terminates
+        Thread(target=self.__validateAllInputs).start()
+        
         
     def __doTrainingLoop(self) -> None:
         self.showCurrentFrame()
