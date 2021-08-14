@@ -240,8 +240,8 @@ class CameraInput:
 # badRange2 = [["four", "56", "34"], ["255", "3", "35"]]   
 # errorCam = CameraInput(badRange1, badRange2)
 # Test 2
-greenRange = [[70, 200, 180], [110, 255, 220]]
-orangeRange = [[40, 140, 210], [70, 180, 255]]
+greenRange = [[80, 200, 160], [120, 255, 220]]
+orangeRange = [[50, 110, 200], [90, 190, 255]]
 cam = CameraInput(greenRange, orangeRange)
 success = cam.updateTrackLocations(6, 50)
 if success:
