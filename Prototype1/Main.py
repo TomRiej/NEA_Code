@@ -7,8 +7,7 @@ from threading import Thread
 
 # Import all my modules:
 from CameraModule import *
-# Hardware input
-# Hardware ouput
+from HardwareInputOutputControl import *
 # QLearning
 
 # Defining constants 
@@ -23,14 +22,14 @@ PATH = "/Users/Tom/Desktop/Education/CS-A-level/NEA/Media/"
 REFRESH_AFTER = 1000 # 1000ms = 1 second
 LOGO_NAME = "FormulAI_Logo.png"
   # Camera
-GREEN_RANGE = [[80, 200, 160], [120, 255, 220]]
+GREEN_RANGE = [[70, 190, 160], [120, 255, 220]]
 ORANGE_RANGE = [[50, 110, 200], [90, 190, 255]]
 SAMPLE_ITERATIONS = 50
 DESLOT_THRESHOLD = 0
 NUM_TRACK_LOCATIONS = 6
   # Harware Input
-# Distance between magnets
-# Number of sensors
+DISTANCE_BETWEEN_MAGNETS = 50 # mm
+NUM_HALL_SENSORS = 4
   # Hardware Output
 # Servo angle range
 # Stop angle
@@ -156,7 +155,7 @@ class ValidationFrame(MyFrame):
                                                command=changeFrameFunc)
 
         
-    def setStatuses(self, allStatuses: list) -> None:
+    def setStatuses(self, allStatuses: list, nCamLocs, nHallLocs) -> None:
         self.__allValid = True
         # self.showFeedback("All inputs are valid!\n", GREEN)
         feedbackString = ""
@@ -171,9 +170,11 @@ class ValidationFrame(MyFrame):
                 elif i == 1:
                     feedbackString += "The car cannot be seen by the camera\n"
                 elif i == 2:
-                    feedbackString += "Not all track locations can be found by the camera:\nx / x were found\n"
+                    tempStr = f"Not all track locations can be found by the camera:\n {nCamLocs} / {NUM_TRACK_LOCATIONS} found\n"
+                    feedbackString += tempStr
                 elif i == 3:
-                    feedbackString += "Not all hall sensors gave an input:\nx / x were sensed\n"
+                    tempStr = f"Not all hall sensors gave an input:\n {nHallLocs} / {NUM_HALL_SENSORS} found\n"
+                    feedbackString += tempStr
                     
         if self.__allValid:
             self.showFeedback("All inputs are valid!\n", GREEN)       
@@ -270,10 +271,14 @@ class FormulAI:
         self.__currentFrame = self.__startFrame
         
         # Initializing Modules
-        self.__camera = CameraInput(GREEN_RANGE,
-                                    ORANGE_RANGE,
-                                    DESLOT_THRESHOLD,
-                                    SAMPLE_ITERATIONS)
+        try:
+            self.__camera = CameraInput(GREEN_RANGE,
+                                        ORANGE_RANGE,
+                                        DESLOT_THRESHOLD,
+                                        SAMPLE_ITERATIONS)
+        except ValueError:
+            print("Camera Module Failed to start") # IMPROVE: raise error?
+        self.__hardwareController = HardwareController(DISTANCE_BETWEEN_MAGNETS)
         
     def __changeToNextFrame(self) -> None:
         if self.__currentFrame == self.__startFrame:
@@ -297,11 +302,20 @@ class FormulAI:
     def __validateAllInputs(self):
         self.__validationFrame.showFeedback("Validation routine executing...\nPlease wait\n",
                                             BLUE)
+        self.__hardwareController.startReading() 
+        # Camera inputs
         self.__statuses[0] = self.__camera.checkCameraIsConnected()
         if self.__statuses[0]:
-            self.__statuses[1], self.__statuses[2] = self.__camera.checkCarAndTrackLocationsFound(NUM_TRACK_LOCATIONS)
-        self.__statuses[3] = True
-        self.__validationFrame.setStatuses(self.__statuses) # [True for x in range(4)]
+            self.__statuses[1], cameraLocsFound = self.__camera.checkCarAndTrackLocationsFound(NUM_TRACK_LOCATIONS)
+            self.__statuses[2] = (cameraLocsFound == NUM_TRACK_LOCATIONS)
+        else:
+            cameraLocsFound = 0
+        # Hall sensor inputs
+        numHallSensorsFound = self.__hardwareController.getNumHallInputs()
+        self.__statuses[3] = (numHallSensorsFound == NUM_HALL_SENSORS)
+        self.__hardwareController.stopReading()
+        
+        self.__validationFrame.setStatuses(self.__statuses, cameraLocsFound, numHallSensorsFound) # [True for x in range(4)]
         self.showCurrentFrame()
         
     def __doValidationRoutine(self) -> None: # IMPROVE: maybe make all one target for thread
