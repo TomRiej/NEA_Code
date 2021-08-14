@@ -21,9 +21,12 @@ PATH = "/Users/Tom/Desktop/Education/CS-A-level/NEA/Media/"
 REFRESH_AFTER = 1000 # 1000ms = 1 second
 LOGO_NAME = "FormulAI_Logo.png"
   # Camera
-# Greens = []
-# Oranges = []
+GREEN_RANGE = [[80, 200, 160], [120, 255, 220]]
+ORANGE_RANGE = [[50, 110, 200], [90, 190, 255]]
+SAMPLE_ITERATIONS = 50
+DESLOT_THRESHOLD = 0
 # number of track locations
+
   # Harware Input
 # Distance between magnets
 # Number of sensors
@@ -262,7 +265,10 @@ class FormulAI:
         self.__currentFrame = self.__startFrame
         
         # Initializing Modules
-        self.__camera = CameraInput()
+        self.__camera = CameraInput(GREEN_RANGE,
+                                    ORANGE_RANGE,
+                                    DESLOT_THRESHOLD,
+                                    SAMPLE_ITERATIONS)
         
     def __changeToNextFrame(self) -> None:
         if self.__currentFrame == self.__startFrame:
@@ -283,12 +289,18 @@ class FormulAI:
         self.__currentFrame.pack()
         self.__currentFrame.showContent()
         
+    def __validateCameraInput(self):
+        pass
+        
     def __doValidationRoutine(self) -> None:
         print("called")
         output = [False for i in range(4)]
         
         # Camera input
         output[0] = self.__camera.checkCameraIsConnected()
+        if output[0]:
+            output[1], output[2] = self.__camera.checkCarAndTrackLocationsFound(6)
+            
             
         
         self.__validationFrame.setStatuses(output)
