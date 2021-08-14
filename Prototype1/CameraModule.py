@@ -28,23 +28,22 @@ class CameraInput:
         self.__backgroundSubtractor = cv.createBackgroundSubtractorMOG2(detectShadows=False)
         self.__detector = cv.SimpleBlobDetector_create()
         
-        self.__cameraIsWorking = False
+        self.__cameraIsWorking = True
         self.__trackLocations = {}
         
         # validating parameters
         if self.__GREEN_RANGE == [] or self.__ORANGE_RANGE == []:
-            print("invalid colour range")
-            raise ValueError
+            raise ValueError("Invalid colour range passed in")
         
         measurementFrame = self.__readFrame()
         if self.__cameraIsWorking:
-            self.__IMAGE_WIDTH = measurementFrame[1]
-            self.__IMAGE_HEIGHT = measurementFrame[0]
+            self.__IMAGE_WIDTH = measurementFrame.shape[1]
+            self.__IMAGE_HEIGHT = measurementFrame.shape[0]
         else:
             self.__IMAGE_WIDTH = 1920
             self.__IMAGE_HEIGHT = 1080
             
-        
+# ==================== Private Methods ========================================    
         
     def __readFrame(self):
         successful, frame = self.__cameraFeed.read()
@@ -54,6 +53,7 @@ class CameraInput:
             print("Frame could not be read")
             self.__cameraIsWorking = False
             return None
+        
         
     @staticmethod
     def __validateColourRange(colourRange: list) -> list:
@@ -122,13 +122,14 @@ class CameraInput:
                 print("Search failed due to camera failing")
                 return []
         return sampleFrames
-    
+
+
+# ==================== Public Methods ========================================
+
     def trainBackgroundOnFrames(self, frames):
         for frame in frames:
             self.__backgroundSubtractor.apply(frame)
-            
-        
-        
+
         
     def checkCameraIsConnected(self):
         # if the image has the three blue loading dots,
@@ -191,14 +192,8 @@ class CameraInput:
         carFound = (self.__getCarLocation() != (-1,-1))
         
         # use the same frames to find the track locations: no need to read more frames (faster)
-        locationsFound = self.FindTrackLocationsInFrames(sampleFrames, targetNumTrackLocations)
-        if len(locationsFound) == targetNumTrackLocations:
-            self.__trackLocations = locationsFound
-            allLocationsFound = True
-        else:
-            print(locationsFound)
-            allLocationsFound = False
-        return carFound, allLocationsFound
+        self.__trackLocations = self.FindTrackLocationsInFrames(sampleFrames, targetNumTrackLocations)
+        return carFound, len(self.__trackLocations)
 
     
         
