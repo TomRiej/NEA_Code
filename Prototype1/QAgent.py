@@ -1,0 +1,1 @@
+# reward for speed and num checkpoints passed
