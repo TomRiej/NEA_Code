@@ -22,6 +22,7 @@ FONT = "Verdana"
 PATH = "/Users/Tom/Desktop/Education/CS-A-level/NEA/Media/"
 REFRESH_AFTER = 1000 # 1000ms = 1 second
 LOGO_NAME = "FormulAI_Logo.png"
+EMPTY = ""
   # Camera
 GREEN_RANGE = [[70, 190, 160], [120, 255, 220]]
 ORANGE_RANGE = [[50, 110, 200], [90, 190, 255]]
@@ -31,7 +32,7 @@ NUM_TRACK_LOCATIONS = 6
   # Harware Input
 DISTANCE_BETWEEN_MAGNETS = 50 # mm
 NUM_HALL_SENSORS = 4
-TIMEOUT = 7 # seconds
+TIMEOUT = 10 # seconds
   # Hardware Output
 # Servo angle range
 # Stop angle
@@ -66,6 +67,7 @@ class MyFrame(tk.Frame):
 class StartFrame(MyFrame):
     def __init__(self, master: tk.Tk, changeFrameFunc) -> None:
         super().__init__(master)
+        self.__master = master
         self.__IMAGESIZE = (200,75)
         
         # https://stackoverflow.com/questions/54716337/tkinter-how-to-place-image-into-a-frame
@@ -94,11 +96,28 @@ class StartFrame(MyFrame):
                                 font=(FONT, 25),
                                 command=changeFrameFunc)
         
+        self.__errorHasOccured = False
+        self.__quitButton = tk.Button(self,
+                                      height=2,
+                                      width=10,
+                                      text="Quit",
+                                      font=(FONT, 25),
+                                      command=self.__master.destroy)
+        
+    def raiseError(self, errorMessage):
+        self.__errorHasOccured = True
+        self._infoMessage.config(text="\n"+errorMessage+"\n\n",
+                                 fg=RED)
+        self.showContent()
+        
     def showContent(self) -> None:
         self.__canvasForImage.grid(row=0)
         self._title.grid(row=1)
         self._infoMessage.grid(row=2)
-        self.__startButton.grid(row=3) 
+        if not self.__errorHasOccured:
+            self.__startButton.grid(row=3)
+        else:
+            self.__quitButton.grid(row=3)
 
 
 class StatusLabel:
@@ -140,6 +159,9 @@ class ValidationFrame(MyFrame):
                            StatusLabel(self, "Input from on-track sensors")]
         
         self.__feedbackLabel = tk.Label(self, font=(FONT, 15))
+        self.__timeoutLabel = tk.Label(self, font=(FONT, 12), 
+                                       text="",
+                                       fg=BLUE)
         self.__allValid = False
         
         self.__retryButton = tk.Button(self, 
@@ -155,6 +177,8 @@ class ValidationFrame(MyFrame):
                                                text="Start Training!",
                                                font=(FONT, 25),
                                                command=changeFrameFunc)
+        
+        
 
         
     def setStatuses(self, allStatuses: list) -> None:
@@ -185,7 +209,7 @@ class ValidationFrame(MyFrame):
         if self.__allValid:
             self.showFeedback("All inputs are valid!\n", GREEN)       
         else:
-            self.showFeedback(feedbackString+"Please do the necessary fixes\n",
+            self.showFeedback(feedbackString+"Please do the necessary fixes",
                               RED)
         
     def showContent(self) -> None:
@@ -195,14 +219,23 @@ class ValidationFrame(MyFrame):
             statusLabel.grid(i+2)
         curRow = len(self.__statuses)+3
         self.__feedbackLabel.grid(row=curRow, columnspan=2)
+        curRow += 1
+        self.__timeoutLabel.grid(row=curRow, columnspan=2)
+        curRow += 1
         if self.__allValid:
-            self.__startTrainingButton.grid(row=curRow+1, columnspan=2)
+            self.__startTrainingButton.grid(row=curRow, columnspan=2)
         else:
-            self.__retryButton.grid(row=curRow+1, columnspan=2)
+            self.__retryButton.grid(row=curRow, columnspan=2)
             
     def showFeedback(self, feedbackString, colour):
         self.__feedbackLabel.config(text=feedbackString,
                                     fg=colour)
+        
+    def updateTimoutAfter(self, timeLeft):
+        if timeLeft == EMPTY:
+            self.__timeoutLabel.config(text="")
+        else:
+            self.__timeoutLabel.config(text="Timeout After: "+timeLeft+"\n")
         
       
 class TrainingFrame(MyFrame):
@@ -284,9 +317,9 @@ class FormulAI:
                                         SAMPLE_ITERATIONS)
             self.__hardwareController = HardwareController(DISTANCE_BETWEEN_MAGNETS)
         except ValueError:
-            print("Camera Module Failed to start") # IMPROVE: raise error?
+            self.__startFrame.raiseError("ValueError: Camera Module Failed to start")
         except serial.serialutil.SerialException:
-            print("the serial port is not connected")
+            self.__startFrame.raiseError("serial.serialutil.SerialException: the serial port is not connected")
         
     def __changeToNextFrame(self) -> None:
         if self.__currentFrame == self.__startFrame:
@@ -315,15 +348,20 @@ class FormulAI:
         
     def __validateHallSensors(self):
         startTime = time()
+        timeoutAfter = str(TIMEOUT+1)
         self.__hardwareController.clearSensorsPassed()
         self.__hardwareController.startReading()
         while not self.__statuses[3][0] and time()-startTime < TIMEOUT:
+            timeLeft = str(TIMEOUT - int(time()-startTime))
+            if timeoutAfter != timeLeft:
+                timeoutAfter = timeLeft
+                self.__validationFrame.updateTimoutAfter(timeoutAfter)
             numHallSensorsFound = self.__hardwareController.getNumHallInputs()
             self.__statuses[3] = [(numHallSensorsFound == NUM_HALL_SENSORS), numHallSensorsFound]
         self.__hardwareController.stopReading()
         
     def __validateAllInputs(self):
-        self.__validationFrame.showFeedback("Validation routine executing...\nPlease wait\n",
+        self.__validationFrame.showFeedback("Validation routine executing...\nPlease wait",
                                             BLUE)
         # There are 2 time consuming processes here:
         # 1. taking many images and analysing them
@@ -335,6 +373,7 @@ class FormulAI:
         hallInputThread.start()# starting this first, as it is likely to take longer
         self.__validateCameraInputs()
         hallInputThread.join() # waiting for process 2 to terminate before updating statuses
+        self.__validationFrame.updateTimoutAfter(EMPTY)
         self.__validationFrame.setStatuses(self.__statuses)
         self.showCurrentFrame()
         
