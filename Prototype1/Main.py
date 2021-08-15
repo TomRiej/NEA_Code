@@ -302,6 +302,7 @@ class FormulAI:
         self.__master.minsize(width=WINDOW_SIZE[0],
                               height=WINDOW_SIZE[1])
         self.__master.title("FormulAI")
+        self.__master.protocol("WM_DELETE_WINDOW", self.__endProgram)
         
         self.__startFrame = StartFrame(self.__master, self.__changeToNextFrame)
         self.__validationFrame = ValidationFrame(self.__master, self.__changeToNextFrame, self.__doValidationRoutine)
@@ -333,7 +334,7 @@ class FormulAI:
             self.__doTrainingLoop()
         elif self.__currentFrame == self.__trainingFrame:
             self.__trainingFrame.delete()
-            self.__master.destroy()
+            
             self.__endProgram()
             
     def showCurrentFrame(self) -> None:
@@ -382,7 +383,8 @@ class FormulAI:
         self.__statuses = [False, False, [False, 0], [False, 0]]
         # Threading is required as the routine takes a while to complete.
         # Without threading, the GUI would freeze and be unusable until the routine terminates
-        Thread(target=self.__validateAllInputs).start()
+        self.__validationThread = Thread(target=self.__validateAllInputs)
+        self.__validationThread.start()
         
         
     def __doTrainingLoop(self) -> None:
@@ -407,12 +409,20 @@ class FormulAI:
         self.__continueTraining = False
     
     def __endProgram(self) -> None:
-        print("Stopping Training loop...")
-        self.__stopTraining()
-        print("Closing Serial Ports...")
-        print("Closing Camera Input...")
-        # close everything
-        print("\nComplete")
+        if self.__currentFrame == self.__validationFrame:
+            if self.__validationThread.is_alive():
+                tk.messagebox.showwarning("Closing Error", "Cannot terminate program, as the validation thread is still running. \nPlease wait for the timeout.")
+            else:
+                self.__master.destroy()
+        elif self.__currentFrame == self.__trainingFrame:
+            print("Stopping Training loop...")
+            self.__stopTraining()
+            print("Closing Serial Ports...")
+            print("Closing Camera Input...")
+            self.__master.destroy()
+        else:
+            self.__master.destroy()
+        print("Complete")
         
         
 
