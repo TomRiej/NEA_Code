@@ -2,37 +2,10 @@
 # 2 threads: one for input, one for output
 # getInputSuccess()
 # getRecentCarInfo()
-from threading import Thread
-
 
 from HardwareInput import *
 from HardwareOutput import *
-
-
-# class needed so that I am able to stop the thread at will using
-# class attributs with sufficient scope
-# class readerThread:
-#     def __init__(self, reader):
-#         self.__hallReader = reader
-#         self.__thread = Thread(target=self.constantRead)
-#         self.__continue = True
-        
-        
-#     def constantRead(self):
-#         while self.__continue:
-#             self.__hallReader.readSerialPort()
-#             print(f"SensorNumber: {self.__hallReader.getDisplacement()} Speed: {self.__hallReader.getSpeed()}")
-
-#     def start(self):
-#         self.__thread.start()
-            
-#     def stop(self):
-#         self.__continue = False
-#         self.__thread.join()
-#         print("finish")
-        
-        
-        
+                
 class HardwareController:
     def __init__(self, distanceBetweenMagnets):
         self.__hallEffectSensorInput = HallInput(distanceBetweenMagnets)
@@ -40,6 +13,9 @@ class HardwareController:
     
     def getNumHallInputs(self):
         return len(self.__hallEffectSensorInput.getSensorsPassed())
+    
+    def clearSensorsPassed(self):
+        self.__hallEffectSensorInput.clearSensorsPassed()
     
     def startReading(self):
         self.__hallEffectSensorInput.startReading()

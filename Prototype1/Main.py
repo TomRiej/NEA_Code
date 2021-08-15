@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from threading import Thread
 
+from time import sleep, time
 # Import all my modules:
 from CameraModule import *
 from HardwareInputOutputControl import *
@@ -30,6 +31,7 @@ NUM_TRACK_LOCATIONS = 6
   # Harware Input
 DISTANCE_BETWEEN_MAGNETS = 50 # mm
 NUM_HALL_SENSORS = 4
+TIMEOUT = 7 # seconds
   # Hardware Output
 # Servo angle range
 # Stop angle
@@ -155,12 +157,16 @@ class ValidationFrame(MyFrame):
                                                command=changeFrameFunc)
 
         
-    def setStatuses(self, allStatuses: list, nCamLocs, nHallLocs) -> None:
+    def setStatuses(self, allStatuses: list) -> None:
         self.__allValid = True
         # self.showFeedback("All inputs are valid!\n", GREEN)
         feedbackString = ""
         for i, statusLabel in enumerate(self.__statuses):
-            if allStatuses[i]:
+            if isinstance(allStatuses[i], bool):
+                status = allStatuses[i]
+            else:
+                status = allStatuses[i][0]
+            if status:
                 statusLabel.setStatus(True)
             else:
                 statusLabel.setStatus(False)
@@ -170,10 +176,10 @@ class ValidationFrame(MyFrame):
                 elif i == 1:
                     feedbackString += "The car cannot be seen by the camera\n"
                 elif i == 2:
-                    tempStr = f"Not all track locations can be found by the camera:\n {nCamLocs} / {NUM_TRACK_LOCATIONS} found\n"
+                    tempStr = f"Not all track locations can be found by the camera:\n {allStatuses[2][1]} / {NUM_TRACK_LOCATIONS} found\n"
                     feedbackString += tempStr
                 elif i == 3:
-                    tempStr = f"Not all hall sensors gave an input:\n {nHallLocs} / {NUM_HALL_SENSORS} found\n"
+                    tempStr = f"Not all hall sensors gave an input:\n {allStatuses[3][1]} / {NUM_HALL_SENSORS} found\n"
                     feedbackString += tempStr
                     
         if self.__allValid:
@@ -276,9 +282,11 @@ class FormulAI:
                                         ORANGE_RANGE,
                                         DESLOT_THRESHOLD,
                                         SAMPLE_ITERATIONS)
+            self.__hardwareController = HardwareController(DISTANCE_BETWEEN_MAGNETS)
         except ValueError:
             print("Camera Module Failed to start") # IMPROVE: raise error?
-        self.__hardwareController = HardwareController(DISTANCE_BETWEEN_MAGNETS)
+        except serial.serialutil.SerialException:
+            print("the serial port is not connected")
         
     def __changeToNextFrame(self) -> None:
         if self.__currentFrame == self.__startFrame:
@@ -299,30 +307,42 @@ class FormulAI:
         self.__currentFrame.pack()
         self.__currentFrame.showContent()
         
-    def __validateAllInputs(self):
-        self.__validationFrame.showFeedback("Validation routine executing...\nPlease wait\n",
-                                            BLUE)
-        self.__hardwareController.startReading() 
-        # Camera inputs
+    def __validateCameraInputs(self):
         self.__statuses[0] = self.__camera.checkCameraIsConnected()
         if self.__statuses[0]:
             self.__statuses[1], cameraLocsFound = self.__camera.checkCarAndTrackLocationsFound(NUM_TRACK_LOCATIONS)
-            self.__statuses[2] = (cameraLocsFound == NUM_TRACK_LOCATIONS)
-        else:
-            cameraLocsFound = 0
-        # Hall sensor inputs
-        numHallSensorsFound = self.__hardwareController.getNumHallInputs()
-        self.__statuses[3] = (numHallSensorsFound == NUM_HALL_SENSORS)
+            self.__statuses[2] = [(cameraLocsFound == NUM_TRACK_LOCATIONS), cameraLocsFound]
+        
+    def __validateHallSensors(self):
+        startTime = time()
+        self.__hardwareController.clearSensorsPassed()
+        self.__hardwareController.startReading()
+        while not self.__statuses[3][0] and time()-startTime < TIMEOUT:
+            numHallSensorsFound = self.__hardwareController.getNumHallInputs()
+            self.__statuses[3] = [(numHallSensorsFound == NUM_HALL_SENSORS), numHallSensorsFound]
         self.__hardwareController.stopReading()
         
-        self.__validationFrame.setStatuses(self.__statuses, cameraLocsFound, numHallSensorsFound) # [True for x in range(4)]
+    def __validateAllInputs(self):
+        self.__validationFrame.showFeedback("Validation routine executing...\nPlease wait\n",
+                                            BLUE)
+        # There are 2 time consuming processes here:
+        # 1. taking many images and analysing them
+        # 2. waiting until the timout to get hall sensor data
+        # I'm using the current thread for process 1
+        # I'm using another thread for process 2, so they can happen near-simultaneously
+        hallInputThread = Thread(target=self.__validateHallSensors)
+        
+        hallInputThread.start()# starting this first, as it is likely to take longer
+        self.__validateCameraInputs()
+        hallInputThread.join() # waiting for process 2 to terminate before updating statuses
+        self.__validationFrame.setStatuses(self.__statuses)
         self.showCurrentFrame()
         
     def __doValidationRoutine(self) -> None: # IMPROVE: maybe make all one target for thread
         self.showCurrentFrame()
-        self.__statuses = [False for i in range(4)]
-        # Threading is required as the routine takes a while to complete (many frames taken and analysed)
-        # without threading, the GUI would freeze and be unusable until the routine terminates
+        self.__statuses = [False, False, [False, 0], [False, 0]]
+        # Threading is required as the routine takes a while to complete.
+        # Without threading, the GUI would freeze and be unusable until the routine terminates
         Thread(target=self.__validateAllInputs).start()
         
         

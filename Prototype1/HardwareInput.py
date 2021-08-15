@@ -53,6 +53,9 @@ class HallInput:
     def stopReading(self):
         self.__continueReading = False
         self.__thread.join()
+        
+    def clearSensorsPassed(self):
+        self.__sensorsPassed = {}
             
     def getSensorsPassed(self):
         return self.__sensorsPassed
