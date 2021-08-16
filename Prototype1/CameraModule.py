@@ -50,7 +50,7 @@ class CameraInput:
         if successful:
             return frame
         else:
-            print("Frame could not be read")
+            print("Frame could not be read: __readFrame")
             self.__cameraIsWorking = False
             return None
         
@@ -74,10 +74,10 @@ class CameraInput:
     
     
     def __getCarLocation(self, zoomDepth=0, zoomPerc=0) -> tuple:    
-        frame = self.__readFrame()
         if not self.__cameraIsWorking:
             return -1, -1
         
+        frame = self.__readFrame()
         foreGroundMask = self.__backgroundSubtractor.apply(frame)
         foreGroundMask = cv.blur(foreGroundMask, (5,5))
         meanX, meanY = self.__CalcAverageLocation(foreGroundMask)
@@ -115,11 +115,11 @@ class CameraInput:
     def __gatherSampleFrames(self):
         sampleFrames = []
         for _ in range(self.__SAMPLE_ITERATIONS):
-            frame = self.__readFrame()
             if self.__cameraIsWorking:
+                frame = self.__readFrame()
                 sampleFrames.append(frame)
             else:
-                print("Search failed due to camera failing")
+                print("Search failed due to camera failing: __gatherSampleFrames")
                 return []
         return sampleFrames
 
@@ -157,9 +157,8 @@ class CameraInput:
             return False
         
     def FindTrackLocationsInFrames(self, frames, targetNum):
+        locationsFound = {}
         for frame in frames:
-            locationsFound = {}
-            
             greenMask = cv.inRange(frame, *self.__GREEN_RANGE)
             greenMask = cv.bitwise_not(cv.blur(greenMask, (15,15)))
             orangeMask = cv.inRange(frame, *self.__ORANGE_RANGE)
@@ -179,6 +178,8 @@ class CameraInput:
             if len(locationsFound) == targetNum:
                 print("all locations found")
                 return locationsFound # break out of loop
+            
+            locationsFound = {}
             
         print("not all track locations were found, please calibrate colours")
         return locationsFound 
