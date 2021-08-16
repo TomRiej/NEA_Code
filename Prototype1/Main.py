@@ -302,7 +302,7 @@ class FormulAI:
         self.__master.minsize(width=WINDOW_SIZE[0],
                               height=WINDOW_SIZE[1])
         self.__master.title("FormulAI")
-        self.__master.protocol("WM_DELETE_WINDOW", self.__endProgram)
+        self.__master.protocol("WM_DELETE_WINDOW", self.__endProgram) # for Thread exception handling
         
         self.__startFrame = StartFrame(self.__master, self.__changeToNextFrame)
         self.__validationFrame = ValidationFrame(self.__master, self.__changeToNextFrame, self.__doValidationRoutine)
@@ -326,6 +326,7 @@ class FormulAI:
         if self.__currentFrame == self.__startFrame:
             self.__currentFrame.delete()
             self.__currentFrame = self.__validationFrame
+            self.__validationRoutineActive = False
             self.__doValidationRoutine()
         elif self.__currentFrame == self.__validationFrame:
             self.__currentFrame.delete()
@@ -362,6 +363,7 @@ class FormulAI:
         self.__hardwareController.stopReading()
         
     def __validateAllInputs(self):
+        self.__validationRoutineActive = True
         self.__validationFrame.showFeedback("Validation routine executing...\nPlease wait",
                                             BLUE)
         # There are 2 time consuming processes here:
@@ -376,15 +378,21 @@ class FormulAI:
         hallInputThread.join() # waiting for process 2 to terminate before updating statuses
         self.__validationFrame.updateTimoutAfter(EMPTY)
         self.__validationFrame.setStatuses(self.__statuses)
+        self.__validationRoutineActive = False
         self.showCurrentFrame()
         
     def __doValidationRoutine(self) -> None: # IMPROVE: maybe make all one target for thread
-        self.showCurrentFrame()
-        self.__statuses = [False, False, [False, 0], [False, 0]]
-        # Threading is required as the routine takes a while to complete.
-        # Without threading, the GUI would freeze and be unusable until the routine terminates
-        self.__validationThread = Thread(target=self.__validateAllInputs)
-        self.__validationThread.start()
+        if self.__validationRoutineActive:
+            tk.messagebox.showwarning("Retry Error", "The validation routine is already running.")    
+        else:
+            self.showCurrentFrame()
+            self.__statuses = [False, False, [False, 0], [False, 0]]
+            # Threading is required as the routine takes a while to complete.
+            # Without threading, the GUI would freeze and be unusable until the routine terminates
+            self.__validationThread = Thread(target=self.__validateAllInputs)
+            self.__validationThread.start()
+            
+
         
         
     def __doTrainingLoop(self) -> None:
