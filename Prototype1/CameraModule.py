@@ -10,6 +10,10 @@ from math import sqrt
 from heapq import nsmallest
 
 # DEBUG = True
+BGR_YELLOW = (0,242,255)
+BGR_GREEN = (0,255,0)
+BGR_ORANGE = (0,162,255)
+
 
 class CameraInput:
     def __init__(self, greenRange, orangeRange, deslotThreshold, sampleIters):
@@ -92,6 +96,15 @@ class CameraInput:
             
         return meanX, meanY
     
+    def __getNumCarPixelsInFrames(self, frames):
+        numPixelsPerFrame = []
+        for frame in frames:
+            foreGroundMask = self.__backgroundSubtractor.apply(frame)
+            foreGroundMask = cv.blur(foreGroundMask, (5,5))
+            maskPositiveCoords = np.where(foreGroundMask == 255)
+            numPixelsPerFrame.append(len(maskPositiveCoords[0]))
+        return np.mean(numPixelsPerFrame)
+    
     def __getZoomedMask(self, curMask, meanX: int, meanY: int, size: int) -> tuple:
         x1 = meanX-size if meanX-size >= 0 else 0
         y1 = meanY-size if meanY-size >= 0 else 0
@@ -101,6 +114,7 @@ class CameraInput:
         
     def __CalcAverageLocation(self, mask) -> tuple:
         maskPositiveCoords = np.where(mask == 255)
+        # print(len(maskPositiveCoords[0]), end=", ")
         xCoords = maskPositiveCoords[1]
         yCoords = maskPositiveCoords[0]
         
@@ -156,7 +170,7 @@ class CameraInput:
             self.__cameraIsWorking = False
             return False
         
-    def FindTrackLocationsInFrames(self, frames, targetNum):
+    def __findTrackLocationsInFrames(self, frames, targetNum):
         locationsFound = {}
         for frame in frames:
             greenMask = cv.inRange(frame, *self.__GREEN_RANGE)
@@ -168,11 +182,11 @@ class CameraInput:
             orangeLocations = self.__detector.detect(orangeMask)
             
             for loc in greenLocations: #improve
-                x,y = loc.pt
+                x,y = int(loc.pt[0]), int(loc.pt[1])
                 locationsFound[(x,y)] = self.__GREEN
                 
             for loc in orangeLocations:
-                x,y = loc.pt
+                x,y = int(loc.pt[0]), int(loc.pt[1])
                 locationsFound[(x,y)] = self.__ORANGE
                 
             if len(locationsFound) == targetNum:
@@ -190,14 +204,36 @@ class CameraInput:
         
         # use frames to find possible car
         self.trainBackgroundOnFrames(sampleFrames)
-        carFound = (self.__getCarLocation() != (-1,-1))
+        averageNumCarPixels = self.__getNumCarPixelsInFrames(sampleFrames)
         
         # use the same frames to find the track locations: no need to read more frames (faster)
-        self.__trackLocations = self.FindTrackLocationsInFrames(sampleFrames, targetNumTrackLocations)
-        return carFound, len(self.__trackLocations)
-
+        self.__trackLocations = self.__findTrackLocationsInFrames(sampleFrames, targetNumTrackLocations)
+        return averageNumCarPixels, len(self.__trackLocations)
     
+    def test(self):
+        for i in range(100):
+            self.__getCarLocation()
+    
+    # def showTestFrames(self):
+    #     if self.__cameraIsWorking:
+    #         frame = self.__readFrame()
+    #         carLocation = self.__getCarLocation()
+            
+    #         for loc in self.__trackLocations.keys():
+    #             if self.__trackLocations[loc]:
+    #                 cv.circle(frame, loc, 50, BGR_ORANGE, 3)
+    #             else:
+    #                 cv.circle(frame, loc, 50, BGR_GREEN, 3)
+    #         cv.circle(frame, carLocation, 50, BGR_YELLOW, 3)
+    #         return cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+    #     else:
+    #         return None    
         
+                
+                
+    
+
+
 if __name__ == '__main__':
     green = [[80, 180, 160], [120, 255, 220]]
     orange = [[50, 110, 200], [90, 190, 255]]
@@ -209,6 +245,8 @@ if __name__ == '__main__':
         print("invalid")
     print(cam.checkCameraIsConnected())
     print(cam.checkCarAndTrackLocationsFound(6))
+    # cam.test()
+    # cam.showATestFrame()
             
             
             
@@ -218,3 +256,13 @@ if __name__ == '__main__':
     #         key = cv.waitKey(1)
     #         if key == 27:
     #             break 
+    
+    # from random import randint
+    # b = [3000, 6000]
+    # for i in range(10000000):
+    #     n = randint(0, 10000)
+    #     if n in range(*b): # ~ 23s
+    #     # b[0] <= n <= b[1]: ~19s
+    #         pass
+    
+    

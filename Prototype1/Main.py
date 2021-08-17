@@ -5,11 +5,14 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from threading import Thread
 
-from time import sleep, time
+
+from time import time
 # Import all my modules:
 from CameraModule import *
 from HardwareInputOutputControl import *
 # QLearning
+
+DEBUG = True
 
 # Defining constants 
   # UI
@@ -21,6 +24,7 @@ BLUE = "#0e6cc9"
 FONT = "Verdana"
 PATH = "/Users/Tom/Desktop/Education/CS-A-level/NEA/Media/"
 REFRESH_AFTER = 1000 # 1000ms = 1 second
+SMALL_TIME_DELAY = 2000 # 3 seconds
 LOGO_NAME = "FormulAI_Logo.png"
 EMPTY = ""
   # Camera
@@ -29,6 +33,7 @@ ORANGE_RANGE = [[50, 110, 200], [90, 190, 255]]
 SAMPLE_ITERATIONS = 50
 DESLOT_THRESHOLD = 0
 NUM_TRACK_LOCATIONS = 6
+NUM_CAR_PIXELS_RANGE = [3500, 5000] # optimum car pixels ~= 4200
   # Harware Input
 DISTANCE_BETWEEN_MAGNETS = 50 # mm
 NUM_HALL_SENSORS = 4
@@ -159,6 +164,7 @@ class ValidationFrame(MyFrame):
                            StatusLabel(self, "Input from on-track sensors")]
         
         self.__feedbackLabel = tk.Label(self, font=(FONT, 15))
+        self.showFeedback("Allowing time for the car to start moving\n", BLUE)
         self.__timeoutLabel = tk.Label(self, font=(FONT, 12), 
                                        text="",
                                        fg=BLUE)
@@ -198,7 +204,11 @@ class ValidationFrame(MyFrame):
                 if i == 0:
                     feedbackString += "There is no input from the camera\n"
                 elif i == 1:
-                    feedbackString += "The car cannot be seen by the camera\n"
+                    pixels = allStatuses[i][1]
+                    if pixels < NUM_CAR_PIXELS_RANGE[0]:
+                        feedbackString += f"Not enough moving pixels to recognise a car: {pixels} pixels\n"
+                    else:
+                        feedbackString += f"Too many moving pixels to recognise a car: {pixels} pixels\n"     
                 elif i == 2:
                     tempStr = f"Not all track locations can be found by the camera:\n {allStatuses[2][1]} / {NUM_TRACK_LOCATIONS} found\n"
                     feedbackString += tempStr
@@ -303,6 +313,8 @@ class FormulAI:
                               height=WINDOW_SIZE[1])
         self.__master.title("FormulAI")
         self.__master.protocol("WM_DELETE_WINDOW", self.__endProgram) # for Thread exception handling
+        # self.__master.bind("d", self.__showCameraFeed)
+        # self.__master.focus_set()
         
         self.__startFrame = StartFrame(self.__master, self.__changeToNextFrame)
         self.__validationFrame = ValidationFrame(self.__master, self.__changeToNextFrame, self.__doValidationRoutine)
@@ -326,8 +338,9 @@ class FormulAI:
         if self.__currentFrame == self.__startFrame:
             self.__currentFrame.delete()
             self.__currentFrame = self.__validationFrame
+            self.showCurrentFrame()
             self.__validationRoutineActive = False
-            self.__doValidationRoutine()
+            self.__master.after(SMALL_TIME_DELAY, self.__doValidationRoutine)
         elif self.__currentFrame == self.__validationFrame:
             self.__currentFrame.delete()
             self.__currentFrame = self.__trainingFrame
@@ -335,17 +348,26 @@ class FormulAI:
             self.__doTrainingLoop()
         elif self.__currentFrame == self.__trainingFrame:
             self.__trainingFrame.delete()
-            
             self.__endProgram()
             
     def showCurrentFrame(self) -> None:
         self.__currentFrame.pack()
         self.__currentFrame.showContent()
         
+    # def __showCameraFeed(self, event):
+    #     img = self.__camera.showTestFrames()
+    #     img = Image.fromarray(img)
+    #     img = ImageTk.PhotoImage(img)
+        
+        
+        
+        
     def __validateCameraInputs(self):
         self.__statuses[0] = self.__camera.checkCameraIsConnected()
         if self.__statuses[0]:
-            self.__statuses[1], cameraLocsFound = self.__camera.checkCarAndTrackLocationsFound(NUM_TRACK_LOCATIONS)
+            numCarPixels, cameraLocsFound = self.__camera.checkCarAndTrackLocationsFound(NUM_TRACK_LOCATIONS)
+            print(numCarPixels)
+            self.__statuses[1] = [NUM_CAR_PIXELS_RANGE[0] <= numCarPixels <= NUM_CAR_PIXELS_RANGE[1], numCarPixels]
             self.__statuses[2] = [(cameraLocsFound == NUM_TRACK_LOCATIONS), cameraLocsFound]
         
     def __validateHallSensors(self):
@@ -386,14 +408,11 @@ class FormulAI:
             tk.messagebox.showwarning("Retry Error", "The validation routine is already running.")    
         else:
             self.showCurrentFrame()
-            self.__statuses = [False, False, [False, 0], [False, 0]]
+            self.__statuses = [False, [False, 0], [False, 0], [False, 0]]
             # Threading is required as the routine takes a while to complete.
             # Without threading, the GUI would freeze and be unusable until the routine terminates
             self.__validationThread = Thread(target=self.__validateAllInputs)
             self.__validationThread.start()
-            
-
-        
         
     def __doTrainingLoop(self) -> None:
         self.showCurrentFrame()
