@@ -9,7 +9,7 @@ from threading import Thread
 class HallInput:
     def __init__(self, distBetweenMagnets: float) -> None:
         self.__ser = serial.Serial("/dev/tty.usbmodem14101", 9600, timeout=.5)
-        sleep(2) # allow time for the serial object to connect to port
+        # sleep(2) # allow time for the serial object to connect to port, tkinter doesnt like time.sleep
         
         self.__DIST_BETWEEN_MAGNETS = distBetweenMagnets
         self.__ENCODING = "utf-8"
