@@ -7,7 +7,7 @@ class HallInput:
         self.__ser = serial.Serial("/dev/tty.usbmodem14101", 9600, timeout=.5)
         sleep(2) # allow time for the serial object to connect to port
         
-        self.__DIST_BETWEEN_MAGNETS = distBetweenMagnets # meters
+        self.__DIST_BETWEEN_MAGNETS = distBetweenMagnets
         self.__ENCODING = "utf-8"
         self.__EMPTY = ""
      
