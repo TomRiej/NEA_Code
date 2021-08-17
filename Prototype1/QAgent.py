@@ -1,1 +1,1 @@
-# reward for speed and num checkpoints passed
+# reward for speed and num checkpoints passed/ laps completed
