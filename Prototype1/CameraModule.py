@@ -173,6 +173,7 @@ class CameraInput:
     def __findTrackLocationsInFrames(self, frames, targetNum):
         locationsFound = {}
         for frame in frames:
+            locationsFound = {}
             greenMask = cv.inRange(frame, *self.__GREEN_RANGE)
             greenMask = cv.bitwise_not(cv.blur(greenMask, (15,15)))
             orangeMask = cv.inRange(frame, *self.__ORANGE_RANGE)
@@ -190,11 +191,8 @@ class CameraInput:
                 locationsFound[(x,y)] = self.__ORANGE
                 
             if len(locationsFound) == targetNum:
-                print("all locations found")
                 return locationsFound # break out of loop
-            
-            locationsFound = {}
-            
+                
         print("not all track locations were found, please calibrate colours")
         return locationsFound 
     
@@ -210,24 +208,32 @@ class CameraInput:
         self.__trackLocations = self.__findTrackLocationsInFrames(sampleFrames, targetNumTrackLocations)
         return averageNumCarPixels, len(self.__trackLocations)
     
+    def close(self):
+        self.__cameraFeed.release()
+    
     def test(self):
         for i in range(100):
             self.__getCarLocation()
     
-    # def showTestFrames(self):
-    #     if self.__cameraIsWorking:
-    #         frame = self.__readFrame()
-    #         carLocation = self.__getCarLocation()
+    def showTestFrames(self):
+        if self.__cameraIsWorking:
+            while True:
+                frame = self.__readFrame()
+                carLocation = self.__getCarLocation()
+                
+                for loc in self.__trackLocations.keys():
+                    if self.__trackLocations[loc]:
+                        cv.circle(frame, loc, 50, BGR_ORANGE, 3)
+                    else:
+                        cv.circle(frame, loc, 50, BGR_GREEN, 3)
+                cv.circle(frame, carLocation, 50, BGR_YELLOW, 3)
+                
             
-    #         for loc in self.__trackLocations.keys():
-    #             if self.__trackLocations[loc]:
-    #                 cv.circle(frame, loc, 50, BGR_ORANGE, 3)
-    #             else:
-    #                 cv.circle(frame, loc, 50, BGR_GREEN, 3)
-    #         cv.circle(frame, carLocation, 50, BGR_YELLOW, 3)
-    #         return cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-    #     else:
-    #         return None    
+                cv.imshow("test frame", frame)
+                k = cv.waitKey(1)
+                if k == 27:
+                    break
+        
         
                 
                 
@@ -246,7 +252,7 @@ if __name__ == '__main__':
     print(cam.checkCameraIsConnected())
     print(cam.checkCarAndTrackLocationsFound(6))
     # cam.test()
-    # cam.showATestFrame()
+    cam.showTestFrames()
             
             
             
