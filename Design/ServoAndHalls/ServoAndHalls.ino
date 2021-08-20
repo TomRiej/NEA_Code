@@ -45,8 +45,8 @@ class HallEffectSensor
 };
 
 
-const int numSensors = 4;
-const int pins[numSensors] = {2, 3, 4, 5}; // the physical pin numbers each sensor is attached to
+const int numSensors = 2;
+const int pins[numSensors] = {2, 3}; // the physical pin numbers each sensor is attached to
 
 HallEffectSensor sensors[numSensors]; // in order to define an empty array of objects,
                                       // the contructor for the object must have 0 parameters
