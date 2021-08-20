@@ -12,7 +12,7 @@ from CameraModule import *
 from HardwareInputOutputControl import *
 # QLearning
 
-DEBUG = True
+# DEBUG = True
 
 # Defining constants 
   # UI
@@ -24,7 +24,7 @@ BLUE = "#0e6cc9"
 FONT = "Verdana"
 PATH = "/Users/Tom/Desktop/Education/CS-A-level/NEA/Media/"
 REFRESH_AFTER = 1000 # 1000ms = 1 second
-SMALL_TIME_DELAY = 2000 # 3 seconds
+SMALL_TIME_DELAY = 2000 # 2 seconds
 LOGO_NAME = "FormulAI_Logo.png"
 EMPTY = ""
   # Camera
@@ -34,14 +34,17 @@ SAMPLE_ITERATIONS = 50
 DESLOT_THRESHOLD = 0
 NUM_TRACK_LOCATIONS = 6
 NUM_CAR_PIXELS_RANGE = [3500, 5000] # optimum car pixels ~= 4200
-  # Harware Input
-DISTANCE_BETWEEN_MAGNETS = 50 # mm
-NUM_HALL_SENSORS = 4
-TIMEOUT = 10 # seconds
-  # Hardware Output
-# Servo angle range
-# Stop angle
-# Slow speed angle
+  # Harware
+SERIAL_PORT_NAME = "/dev/tty.usbmodem14101"
+SERIAL_BAUD_RATE = 9600
+SERIAL_READ_TIMEOUT = 0.5
+  # Input
+DISTANCE_BETWEEN_MAGNETS = 88 # mm
+NUM_HALL_SENSORS = 2
+VALIDATION_TIMEOUT = 10 # seconds
+  # Output
+SERVO_RANGE = [30, 90]
+SLOW_ANGLE = 65
   # Q Learning
 # Parameters
 
@@ -241,11 +244,13 @@ class ValidationFrame(MyFrame):
         self.__feedbackLabel.config(text=feedbackString,
                                     fg=colour)
         
-    def updateTimoutAfter(self, timeLeft):
-        if timeLeft == EMPTY:
+    def updateTimoutAfter(self, info):
+        if info == EMPTY:
             self.__timeoutLabel.config(text="")
+        elif info == "complete":
+            self.__timeoutLabel.config(text="Found all hall sensors\nWaiting for the camera")
         else:
-            self.__timeoutLabel.config(text="Timeout After: "+timeLeft+"\n")
+            self.__timeoutLabel.config(text="Timeout After: "+info+"\n")
         
       
 class TrainingFrame(MyFrame):
@@ -328,11 +333,17 @@ class FormulAI:
                                         ORANGE_RANGE,
                                         DESLOT_THRESHOLD,
                                         SAMPLE_ITERATIONS)
-            self.__hardwareController = HardwareController(DISTANCE_BETWEEN_MAGNETS)
+            
+            self.__hardwareController = HardwareController(SERIAL_PORT_NAME,
+                                                           SERIAL_BAUD_RATE,
+                                                           SERIAL_READ_TIMEOUT,
+                                                           DISTANCE_BETWEEN_MAGNETS,
+                                                           SERVO_RANGE)
         except ValueError:
             self.__startFrame.raiseError("ValueError: Camera Module Failed to start")
         except serial.serialutil.SerialException:
             self.__startFrame.raiseError("serial.serialutil.SerialException: the serial port is not connected")
+        self.__master.after(SMALL_TIME_DELAY, self.__hardwareController.stopCar)
         
     def __changeToNextFrame(self) -> None:
         if self.__currentFrame == self.__startFrame:
@@ -340,6 +351,7 @@ class FormulAI:
             self.__currentFrame = self.__validationFrame
             self.showCurrentFrame()
             self.__validationRoutineActive = False
+            self.__hardwareController.setServoAngle(SLOW_ANGLE)
             self.__master.after(SMALL_TIME_DELAY, self.__doValidationRoutine)
         elif self.__currentFrame == self.__validationFrame:
             self.__currentFrame.delete()
@@ -366,23 +378,23 @@ class FormulAI:
         self.__statuses[0] = self.__camera.checkCameraIsConnected()
         if self.__statuses[0]:
             numCarPixels, cameraLocsFound = self.__camera.checkCarAndTrackLocationsFound(NUM_TRACK_LOCATIONS)
-            print(numCarPixels)
             self.__statuses[1] = [NUM_CAR_PIXELS_RANGE[0] <= numCarPixels <= NUM_CAR_PIXELS_RANGE[1], numCarPixels]
             self.__statuses[2] = [(cameraLocsFound == NUM_TRACK_LOCATIONS), cameraLocsFound]
         
     def __validateHallSensors(self):
         startTime = time()
-        timeoutAfter = str(TIMEOUT+1)
+        timeoutAfter = str(VALIDATION_TIMEOUT+1)
         self.__hardwareController.clearSensorsPassed()
         self.__hardwareController.startReading()
-        while not self.__statuses[3][0] and time()-startTime < TIMEOUT:
-            timeLeft = str(TIMEOUT - int(time()-startTime))
+        while not self.__statuses[3][0] and time()-startTime < VALIDATION_TIMEOUT:
+            timeLeft = str(VALIDATION_TIMEOUT - int(time()-startTime))
             if timeoutAfter != timeLeft:
                 timeoutAfter = timeLeft
                 self.__validationFrame.updateTimoutAfter(timeoutAfter)
             numHallSensorsFound = self.__hardwareController.getNumHallInputs()
             self.__statuses[3] = [(numHallSensorsFound == NUM_HALL_SENSORS), numHallSensorsFound]
         self.__hardwareController.stopReading()
+        self.__validationFrame.updateTimoutAfter("complete")
         
     def __validateAllInputs(self):
         self.__validationRoutineActive = True
@@ -394,8 +406,7 @@ class FormulAI:
         # I'm using the current thread for process 1
         # I'm using another thread for process 2, so they can happen near-simultaneously
         hallInputThread = Thread(target=self.__validateHallSensors)
-        
-        hallInputThread.start()# starting this first, as it is likely to take longer
+        hallInputThread.start()
         self.__validateCameraInputs()
         hallInputThread.join() # waiting for process 2 to terminate before updating statuses
         self.__validationFrame.updateTimoutAfter(EMPTY)
@@ -413,19 +424,43 @@ class FormulAI:
             # Without threading, the GUI would freeze and be unusable until the routine terminates
             self.__validationThread = Thread(target=self.__validateAllInputs)
             self.__validationThread.start()
+            
+    def __lapCompleted(self):
+        pass
+            
+    def __validateCameraWithHall(self):
+        pass
+            
+    def __getCarStateFromCamera(self):
+        # camera.getinfo
+        pass    
+            
+    def __train(self, initState):
+        # trust that there are no issues
+        # determine A1 using QTable and S1
+        # Set hardware to A1
+        # wait small delay
+        # Get current state and deslotted? from camera (S2)
+        # RInst = calc reward (speed, lapsNoDeslot, deslotted?)
+        # calc and update new Qvalue
+        # 
+        pass
         
     def __doTrainingLoop(self) -> None:
         self.showCurrentFrame()
-        # do the training
         print("trained")
-        # to test the graph updating:
-        newData = []
-        with open(PATH+"sampleData.txt", "r") as file:
-            for line in file:
-                line = line.strip()
-                x,y = line.split(",")
-                newData.append((x,y))
-        self.__currentFrame.updateGraph(newData)
+        # Get current state from camera
+        # if camera still valid and not deslotted:
+        #   store state into S1
+        #   
+        #   if deslotted:
+        #     wait for fix and restart
+        #   else:
+        #     S1 = S2
+        #     restart
+        
+
+        
         
         if self.__continueTraining:
             self.__master.after(REFRESH_AFTER, self.__doTrainingLoop)
@@ -436,19 +471,22 @@ class FormulAI:
         self.__continueTraining = False
     
     def __endProgram(self) -> None:
+        safeToClose = True
         if self.__currentFrame == self.__validationFrame:
             if self.__validationThread.is_alive():
                 tk.messagebox.showwarning("Closing Error", "Cannot terminate program, as the validation thread is still running. \nPlease wait for the timeout.")
-            else:
-                self.__master.destroy()
+                safeToClose = False
         elif self.__currentFrame == self.__trainingFrame:
             print("Stopping Training loop...")
             self.__stopTraining()
+        
+        if safeToClose:
             print("Closing Serial Ports...")
+            self.__hardwareController.close()
             print("Closing Camera Input...")
+            self.__camera.close()
             self.__master.destroy()
-        else:
-            self.__master.destroy()
+        
         print("Complete")
         
         

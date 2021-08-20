@@ -7,9 +7,9 @@ from HardwareInput import *
 from HardwareOutput import *
                 
 class HardwareController:
-    def __init__(self, distanceBetweenMagnets):
-        self.__hallEffectSensorInput = HallInput(distanceBetweenMagnets)
-        self.__servoController = None
+    def __init__(self, portName, baudRate, timeout, distanceBetweenMagnets, angleRange):
+        self.__hallEffectSensorInput = HallInput(portName, baudRate, timeout, distanceBetweenMagnets)
+        self.__servoController = ServoController(portName, baudRate, angleRange)
     
     def getNumHallInputs(self):
         return len(self.__hallEffectSensorInput.getSensorsPassed())
@@ -23,8 +23,16 @@ class HardwareController:
     def stopReading(self):
         self.__hallEffectSensorInput.stopReading()
         
+    def setServoAngle(self, angle):
+        self.__servoController.setAngle(angle)
+        
+    def stopCar(self):
+        self.__servoController.stopCar()
+        
     def close(self):
+        self.stopCar()
         self.__hallEffectSensorInput.closeSerial()
+        self.__servoController.closeSerial()
         
     
 if __name__=="__main__":

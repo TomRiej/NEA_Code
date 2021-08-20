@@ -2,16 +2,16 @@
 # getInputSuccess()
 #
 import serial
-from time import sleep, time
+from time import time
 from threading import Thread
 
 
 class HallInput:
-    def __init__(self, distBetweenMagnets: float) -> None:
-        self.__ser = serial.Serial("/dev/tty.usbmodem14101", 9600, timeout=.5)
+    def __init__(self, portName, baudRate, timeout, distBetweenMagnets: float) -> None:
+        self.__serialPort = serial.Serial(portName, baudRate, timeout=timeout)
         # sleep(2) # allow time for the serial object to connect to port, tkinter doesnt like time.sleep
         
-        self.__DIST_BETWEEN_MAGNETS = distBetweenMagnets
+        self.__DIST_BETWEEN_MAGNETS = distBetweenMagnets # mm
         self.__ENCODING = "utf-8"
         self.__EMPTY = ""
      
@@ -32,7 +32,7 @@ class HallInput:
         
     def __readSerialPort(self) -> None:
         while self.__continueReading:
-            line = self.__ser.readline()
+            line = self.__serialPort.readline()
             strLine = line.decode(self.__ENCODING)
             if strLine != self.__EMPTY:
                 disp, timeTaken = strLine.split(" ")
@@ -46,6 +46,7 @@ class HallInput:
             # creating a thread for reading in, so i dont disturb any loops that use this module
             self.__thread = Thread(target=self.__readSerialPort)
             self.__continueReading = True
+            self.__serialPort.reset_input_buffer()
             self.__thread.start()
         else:
             print("reading has already started")
@@ -67,7 +68,7 @@ class HallInput:
         return self.__displacement
     
     def closeSerial(self) -> None:
-        self.__ser.close()
+        self.__serialPort.close()
         
         
 if __name__ == '__main__':
