@@ -23,7 +23,7 @@ GREEN = "#20CC20"
 BLUE = "#0e6cc9"
 FONT = "Verdana"
 PATH = "/Users/Tom/Desktop/Education/CS-A-level/NEA/Media/"
-REFRESH_AFTER = 1 # 1000ms = 1 second
+REFRESH_AFTER = 1 # constantly refresh
 SMALL_TIME_DELAY = 2000 # 2 seconds
 LOGO_NAME = "FormulAI_Logo.png"
 EMPTY = ""
@@ -35,6 +35,8 @@ SAMPLE_ITERATIONS = 50
 DESLOT_THRESHOLD = 0
 NUM_TRACK_LOCATIONS = 6
 NUM_CAR_PIXELS_RANGE = [3500, 5500] # optimum car pixels ~= 4200
+ZOOM_DEPTH = 4
+ZOOM_PERCENTAGE = 0.5
 MILLIMETERS_PER_PIXEL = 2000 / 1428 # track is 2m = 2000mm. track is 1428 pixels wide on the camera
   # Harware
 SERIAL_PORT_NAME = "/dev/tty.usbmodem14101"
@@ -442,7 +444,11 @@ class FormulAI:
         pass
             
     def __getCarState(self):
-        print("Camera speed:", self.__camera.getCarInfo(0,0)["carSpeed"])
+        carInfo = self.__camera.getCarInfo(ZOOM_DEPTH,
+                                           ZOOM_PERCENTAGE)
+        print(carInfo["deslotted"])
+        
+        
         
         # return INVALID if something is wrong
         pass    
