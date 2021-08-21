@@ -161,7 +161,7 @@ if __name__ == '__main__':
     trained = cam.trainBackground(50)
     locations = []
     if trained:
-        cam.showCarLocation(1, 0.1)
+        cam.showCarLocation(1, 0.05)
         # for i in range(10):
         #     # meanX, meanY = cam.getCarLocation(4, 0.5)
         #     start, end, spd = cam.getCarSpeed(4, 0.5)
