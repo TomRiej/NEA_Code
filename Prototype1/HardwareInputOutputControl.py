@@ -28,6 +28,9 @@ class HardwareController:
     
     def checkNewLapTime(self):
         return self.__hallEffectSensorInput.checkNewLapTime()
+    
+    def getCarInfo(self):
+        return self.__hallEffectSensorInput.getCarInfo()
         
     def setServoAngle(self, angle):
         self.__servoController.setAngle(angle)

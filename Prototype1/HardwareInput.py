@@ -87,12 +87,9 @@ class HallInput:
             
     def getSensorsPassed(self):
         return self.__sensorsPassed
-            
-    def getSpeed(self) -> float:
-        return self.__speed
     
-    def getDisplacement(self) -> int:
-        return self.__displacement
+    def getCarInfo(self):
+        return self.__displacement, self.__speed
     
     def closeSerial(self) -> None:
         self.__serialPort.close()
