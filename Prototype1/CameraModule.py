@@ -5,7 +5,7 @@
 
 import cv2 as cv
 import numpy as np
-from time import time, sleep
+from time import time
 from math import sqrt
 from heapq import nsmallest
 
@@ -133,7 +133,7 @@ class CameraInput:
 
 
 # ==================== Training   
-    def __getCarLocation(self, zoomDepth=0, zoomPerc=0) -> tuple:    
+    def __getCarLocation(self, zoomDepth, zoomPerc) -> tuple:    
         if not self.__cameraIsWorking:
             return (-1, -1), -1
         
@@ -178,8 +178,27 @@ class CameraInput:
         millimeterDistance = self.__getMillimetersBetweenCoords(startCoords, endCoords)
         return millimeterDistance / secondsTimeTaken
         
-    def __getNextTrackLocation(self):
-        pass
+    def __getNextTrackLocation(self, startCoords, endCoords):
+        # get the distance from the car from each track location
+        locDistances = {}
+        for loc in self.__trackLocations:
+            dist = self.__getMillimetersBetweenCoords(startCoords, loc)
+            locDistances[loc] = dist
+            
+        # get the 2 closest locations
+        loc1, loc2 = nsmallest(2, locDistances, key=locDistances.get)
+        
+        # check which location has their distance decreasing (next location)
+        newLoc1Dist = self.__getMillimetersBetweenCoords(endCoords, loc1)
+        newLoc2Dist = self.__getMillimetersBetweenCoords(endCoords, loc2)
+        deltaDist1 = newLoc1Dist - locDistances[loc1]
+        deltaDist2 = newLoc2Dist - locDistances[loc2]
+        if deltaDist1 < deltaDist2:
+            return loc1, newLoc1Dist 
+        else:
+            return loc2, newLoc2Dist
+        
+        
     
     def __getMillimetersBetweenCoords(self, p1, p2):
         xDist = p2[0] - p1[0]
@@ -246,9 +265,8 @@ class CameraInput:
         
         info["carLocation"] = endCoords
         info["carSpeed"] = self.__getCarSpeed(startCoords, endCoords, elapsedTime) # mm / s
-        # info["nextTrackLoc"] = self.__getNextTrackLocation(startCoords, endCoords) # mm
-        # info["nextTrackLocDist"] = self.__getDistanceBetweenCoords(endCoords, info["nextTrackLoc"])
-        # info["nextTrackLocType"] = self.__trackLocations[info["nextTrackLoc"]]
+        info["nextTrackLoc"], info["nextTrackLocDist"] = self.__getNextTrackLocation(startCoords, endCoords) # (x,y), mm
+        info["nextTrackLocType"] = self.__trackLocations[info["nextTrackLoc"]]
         if info["carSpeed"] <= self.__DESLOT_THRESHOLD:
             info["deslotted"] = True
         else:
