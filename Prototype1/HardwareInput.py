@@ -19,6 +19,10 @@ class HallInput:
         self.__displacement = 0
         
         self.__sensorsPassed = {}
+        
+        self.__measureLapTimes = False
+        self.__newLapTime = self.__EMPTY
+        
         self.__continueReading = False
 
 
@@ -38,7 +42,11 @@ class HallInput:
                 disp, timeTaken = strLine.split(" ")
                 self.__displacement = int(disp)
                 self.__speed = self.__calcSpeed(float(timeTaken))
+                print("Hall sensor speed:", self.__speed)
+                if self.__measureLapTimes and self.__displacement == self.__startFinishSensor:
+                    self.__newLapTime = time() - self.__sensorsPassed[self.__startFinishSensor]
                 self.__sensorsPassed[self.__displacement] = time()
+                
             
     def startReading(self):
         # only start reading if it isn't already started
@@ -54,6 +62,25 @@ class HallInput:
     def stopReading(self):
         self.__continueReading = False
         self.__thread.join()
+        
+    def startMeasuringLapTimes(self):
+        keys = self.__sensorsPassed.keys()
+        for key in keys:
+            self.__startFinishSensor = key
+            break
+        self.__measureLapTimes = True
+        print("started measure lap times")
+        
+    def stopMeasuringLapTimes(self): # redundant??
+        self.__measureLapTimes = False
+        
+    def checkNewLapTime(self):
+        if self.__newLapTime != self.__EMPTY:
+            lapTime = self.__newLapTime
+            self.__newLapTime = self.__EMPTY
+            return lapTime
+        else:
+            return self.__EMPTY
         
     def clearSensorsPassed(self):
         self.__sensorsPassed = {}

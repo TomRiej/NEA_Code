@@ -5,7 +5,7 @@
 
 import cv2 as cv
 import numpy as np
-from time import time
+from time import time, sleep
 from math import sqrt
 from heapq import nsmallest
 
@@ -16,7 +16,7 @@ BGR_ORANGE = (0,162,255)
 
 
 class CameraInput:
-    def __init__(self, greenRange, orangeRange, deslotThreshold, sampleIters):
+    def __init__(self, greenRange, orangeRange, deslotThreshold, sampleIters, MillimetersPerPixel):
         # Initializing constants
         self.__GREEN = 0
         self.__ORANGE = 1
@@ -26,6 +26,7 @@ class CameraInput:
         self.__ORANGE_RANGE = self.__validateColourRange(orangeRange)
         self.__DESLOT_THRESHOLD = deslotThreshold
         self.__SAMPLE_ITERATIONS = sampleIters
+        self.__MILLIMETERS_PER_PIXEL = MillimetersPerPixel
         
         # initializing OpenCV objects
         self.__cameraFeed = cv.VideoCapture(1)
@@ -48,7 +49,7 @@ class CameraInput:
             self.__IMAGE_HEIGHT = 1080
             
 # ==================== Private Methods ========================================    
-        
+# ==================== General
     def __readFrame(self):
         successful, frame = self.__cameraFeed.read()
         if successful:
@@ -57,7 +58,6 @@ class CameraInput:
             print("Frame could not be read: __readFrame")
             self.__cameraIsWorking = False
             return None
-        
         
     @staticmethod
     def __validateColourRange(colourRange: list) -> list:
@@ -77,11 +77,68 @@ class CameraInput:
         return np.array(colourRange)
     
     
+# ==================== Validation 
+    def __gatherSampleFrames(self):
+        sampleFrames = []
+        for _ in range(self.__SAMPLE_ITERATIONS):
+            if self.__cameraIsWorking:
+                frame = self.__readFrame()
+                sampleFrames.append(frame)
+            else:
+                print("Search failed due to camera failing: __gatherSampleFrames")
+                return []
+        return sampleFrames
+    
+    
+    def __trainBackgroundOnFrames(self, frames):
+        for frame in frames:
+            self.__backgroundSubtractor.apply(frame)
+    
+    
+    def __findTrackLocationsInFrames(self, frames, targetNum):
+        locationsFound = {}
+        for frame in frames:
+            locationsFound = {}
+            greenMask = cv.inRange(frame, *self.__GREEN_RANGE)
+            greenMask = cv.bitwise_not(cv.blur(greenMask, (15,15)))
+            orangeMask = cv.inRange(frame, *self.__ORANGE_RANGE)
+            orangeMask = cv.bitwise_not(cv.blur(orangeMask, (15,15)))
+            
+            greenLocations = self.__detector.detect(greenMask)
+            orangeLocations = self.__detector.detect(orangeMask)
+            
+            for loc in greenLocations: #improve
+                x,y = int(loc.pt[0]), int(loc.pt[1])
+                locationsFound[(x,y)] = self.__GREEN
+                
+            for loc in orangeLocations:
+                x,y = int(loc.pt[0]), int(loc.pt[1])
+                locationsFound[(x,y)] = self.__ORANGE
+                
+            if len(locationsFound) == targetNum:
+                return locationsFound # break out of loop
+                
+        print("not all track locations were found, please calibrate colours")
+        return locationsFound
+    
+
+    def __getNumCarPixelsInFrames(self, frames):
+        numPixelsPerFrame = []
+        for frame in frames:
+            foreGroundMask = self.__backgroundSubtractor.apply(frame)
+            foreGroundMask = cv.blur(foreGroundMask, (5,5))
+            maskPositiveCoords = np.where(foreGroundMask == 255)
+            numPixelsPerFrame.append(len(maskPositiveCoords[0]))
+        return np.mean(numPixelsPerFrame)
+
+
+# ==================== Training   
     def __getCarLocation(self, zoomDepth=0, zoomPerc=0) -> tuple:    
         if not self.__cameraIsWorking:
-            return -1, -1
+            return (-1, -1), -1
         
         frame = self.__readFrame()
+        timestamp = time()
         foreGroundMask = self.__backgroundSubtractor.apply(frame)
         foreGroundMask = cv.blur(foreGroundMask, (5,5))
         meanX, meanY = self.__CalcAverageLocation(foreGroundMask)
@@ -94,16 +151,7 @@ class CameraInput:
             meanX += x1
             meanY += y1
             
-        return meanX, meanY
-    
-    def __getNumCarPixelsInFrames(self, frames):
-        numPixelsPerFrame = []
-        for frame in frames:
-            foreGroundMask = self.__backgroundSubtractor.apply(frame)
-            foreGroundMask = cv.blur(foreGroundMask, (5,5))
-            maskPositiveCoords = np.where(foreGroundMask == 255)
-            numPixelsPerFrame.append(len(maskPositiveCoords[0]))
-        return np.mean(numPixelsPerFrame)
+        return (meanX, meanY), timestamp
     
     def __getZoomedMask(self, curMask, meanX: int, meanY: int, size: int) -> tuple:
         x1 = meanX-size if meanX-size >= 0 else 0
@@ -126,25 +174,30 @@ class CameraInput:
             print("NaN Error Received, check zoom parameters")
         return -1, -1
     
-    def __gatherSampleFrames(self):
-        sampleFrames = []
-        for _ in range(self.__SAMPLE_ITERATIONS):
-            if self.__cameraIsWorking:
-                frame = self.__readFrame()
-                sampleFrames.append(frame)
-            else:
-                print("Search failed due to camera failing: __gatherSampleFrames")
-                return []
-        return sampleFrames
-
-
-# ==================== Public Methods ========================================
-
-    def trainBackgroundOnFrames(self, frames):
-        for frame in frames:
-            self.__backgroundSubtractor.apply(frame)
-
+    def __getCarSpeed(self, startCoords, endCoords, secondsTimeTaken):
+        millimeterDistance = self.__getMillimetersBetweenCoords(startCoords, endCoords)
+        return millimeterDistance / secondsTimeTaken
         
+    def __getNextTrackLocation(self):
+        pass
+    
+    def __getMillimetersBetweenCoords(self, p1, p2):
+        xDist = p2[0] - p1[0]
+        yDist = p2[1] - p1[1] 
+        pixelDist = sqrt((xDist**2) + (yDist**2))
+        return self.__pixelToMilimeter(pixelDist)
+    
+    def __pixelToMilimeter(self, pixelDistance):
+        return pixelDistance * self.__MILLIMETERS_PER_PIXEL
+    
+    
+# ==================== Public Methods ========================================
+# ==================== General
+    def close(self):
+        self.__cameraFeed.release()
+
+
+# ==================== Validation         
     def checkCameraIsConnected(self):
         # if the image has the three blue loading dots,
         # then the camera is not connected
@@ -170,69 +223,61 @@ class CameraInput:
             self.__cameraIsWorking = False
             return False
         
-    def __findTrackLocationsInFrames(self, frames, targetNum):
-        locationsFound = {}
-        for frame in frames:
-            locationsFound = {}
-            greenMask = cv.inRange(frame, *self.__GREEN_RANGE)
-            greenMask = cv.bitwise_not(cv.blur(greenMask, (15,15)))
-            orangeMask = cv.inRange(frame, *self.__ORANGE_RANGE)
-            orangeMask = cv.bitwise_not(cv.blur(orangeMask, (15,15)))
-            
-            greenLocations = self.__detector.detect(greenMask)
-            orangeLocations = self.__detector.detect(orangeMask)
-            
-            for loc in greenLocations: #improve
-                x,y = int(loc.pt[0]), int(loc.pt[1])
-                locationsFound[(x,y)] = self.__GREEN
-                
-            for loc in orangeLocations:
-                x,y = int(loc.pt[0]), int(loc.pt[1])
-                locationsFound[(x,y)] = self.__ORANGE
-                
-            if len(locationsFound) == targetNum:
-                return locationsFound # break out of loop
-                
-        print("not all track locations were found, please calibrate colours")
-        return locationsFound 
-    
+     
     def checkCarAndTrackLocationsFound(self, targetNumTrackLocations):
         # gather frames
         sampleFrames = self.__gatherSampleFrames()
         
         # use frames to find possible car
-        self.trainBackgroundOnFrames(sampleFrames)
+        self.__trainBackgroundOnFrames(sampleFrames)
         averageNumCarPixels = self.__getNumCarPixelsInFrames(sampleFrames)
         
         # use the same frames to find the track locations: no need to read more frames (faster)
         self.__trackLocations = self.__findTrackLocationsInFrames(sampleFrames, targetNumTrackLocations)
         return averageNumCarPixels, len(self.__trackLocations)
     
-    def close(self):
-        self.__cameraFeed.release()
     
-    def test(self):
-        for i in range(100):
-            self.__getCarLocation()
+# ==================== Training  
+    def getCarInfo(self, zD: int, zP: float) -> dict:
+        info = {}
+        startCoords, startTime = self.__getCarLocation(zD,zP)
+        endCoords, endTime = self.__getCarLocation(zD,zP)
+        elapsedTime = endTime-startTime
+        
+        info["carLocation"] = endCoords
+        info["carSpeed"] = self.__getCarSpeed(startCoords, endCoords, elapsedTime) # mm / s
+        # info["nextTrackLoc"] = self.__getNextTrackLocation(startCoords, endCoords) # mm
+        # info["nextTrackLocDist"] = self.__getDistanceBetweenCoords(endCoords, info["nextTrackLoc"])
+        # info["nextTrackLocType"] = self.__trackLocations[info["nextTrackLoc"]]
+        if info["carSpeed"] <= self.__DESLOT_THRESHOLD:
+            info["deslotted"] = True
+        else:
+            info["deslotted"] = False
+        
+        return info
     
-    def showTestFrames(self):
-        if self.__cameraIsWorking:
-            while True:
-                frame = self.__readFrame()
-                carLocation = self.__getCarLocation()
+    # def test(self):
+    #     for i in range(100):
+    #         self.__getCarLocation()
+    
+    # def showTestFrames(self):
+    #     if self.__cameraIsWorking:
+    #         while True:
+    #             frame = self.__readFrame()
+    #             carLocation = self.__getCarLocation()
                 
-                for loc in self.__trackLocations.keys():
-                    if self.__trackLocations[loc]:
-                        cv.circle(frame, loc, 50, BGR_ORANGE, 3)
-                    else:
-                        cv.circle(frame, loc, 50, BGR_GREEN, 3)
-                cv.circle(frame, carLocation, 50, BGR_YELLOW, 3)
+    #             for loc in self.__trackLocations.keys():
+    #                 if self.__trackLocations[loc]:
+    #                     cv.circle(frame, loc, 50, BGR_ORANGE, 3)
+    #                 else:
+    #                     cv.circle(frame, loc, 50, BGR_GREEN, 3)
+    #             cv.circle(frame, carLocation, 50, BGR_YELLOW, 3)
                 
             
-                cv.imshow("test frame", frame)
-                k = cv.waitKey(1)
-                if k == 27:
-                    break
+    #             cv.imshow("test frame", frame)
+    #             k = cv.waitKey(1)
+    #             if k == 27:
+    #                 break
         
         
                 
@@ -252,7 +297,7 @@ if __name__ == '__main__':
     print(cam.checkCameraIsConnected())
     print(cam.checkCarAndTrackLocationsFound(6))
     # cam.test()
-    cam.showTestFrames()
+    # cam.showTestFrames()
             
             
             

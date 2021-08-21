@@ -23,6 +23,12 @@ class HardwareController:
     def stopReading(self):
         self.__hallEffectSensorInput.stopReading()
         
+    def startMeasuringLapTimes(self):
+        self.__hallEffectSensorInput.startMeasuringLapTimes()
+    
+    def checkNewLapTime(self):
+        return self.__hallEffectSensorInput.checkNewLapTime()
+        
     def setServoAngle(self, angle):
         self.__servoController.setAngle(angle)
         

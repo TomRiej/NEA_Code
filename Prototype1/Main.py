@@ -23,17 +23,19 @@ GREEN = "#20CC20"
 BLUE = "#0e6cc9"
 FONT = "Verdana"
 PATH = "/Users/Tom/Desktop/Education/CS-A-level/NEA/Media/"
-REFRESH_AFTER = 1000 # 1000ms = 1 second
+REFRESH_AFTER = 1 # 1000ms = 1 second
 SMALL_TIME_DELAY = 2000 # 2 seconds
 LOGO_NAME = "FormulAI_Logo.png"
 EMPTY = ""
+INVALID = -1
   # Camera
 GREEN_RANGE = [[70, 190, 160], [120, 255, 220]]
 ORANGE_RANGE = [[50, 110, 200], [90, 190, 255]]
 SAMPLE_ITERATIONS = 50
 DESLOT_THRESHOLD = 0
 NUM_TRACK_LOCATIONS = 6
-NUM_CAR_PIXELS_RANGE = [3500, 5000] # optimum car pixels ~= 4200
+NUM_CAR_PIXELS_RANGE = [3500, 5500] # optimum car pixels ~= 4200
+MILLIMETERS_PER_PIXEL = 2000 / 1428 # track is 2m = 2000mm. track is 1428 pixels wide on the camera
   # Harware
 SERIAL_PORT_NAME = "/dev/tty.usbmodem14101"
 SERIAL_BAUD_RATE = 9600
@@ -292,8 +294,8 @@ class TrainingFrame(MyFrame):
         xList = []
         yList = []
         for x, y in newData:
-            xList.append(int(x))
-            yList.append(int(y))
+            xList.append(x)
+            yList.append(y)
         self.__myPlot.clear()
         self.__myPlot.plot(xList, yList)
         self.__myPlot.set_xlabel("Lap Number")
@@ -332,18 +334,20 @@ class FormulAI:
             self.__camera = CameraInput(GREEN_RANGE,
                                         ORANGE_RANGE,
                                         DESLOT_THRESHOLD,
-                                        SAMPLE_ITERATIONS)
+                                        SAMPLE_ITERATIONS,
+                                        MILLIMETERS_PER_PIXEL)
             
             self.__hardwareController = HardwareController(SERIAL_PORT_NAME,
                                                            SERIAL_BAUD_RATE,
                                                            SERIAL_READ_TIMEOUT,
                                                            DISTANCE_BETWEEN_MAGNETS,
                                                            SERVO_RANGE)
+            self.__master.after(SMALL_TIME_DELAY, self.__hardwareController.stopCar)
         except ValueError:
             self.__startFrame.raiseError("ValueError: Camera Module Failed to start")
         except serial.serialutil.SerialException:
             self.__startFrame.raiseError("serial.serialutil.SerialException: the serial port is not connected")
-        self.__master.after(SMALL_TIME_DELAY, self.__hardwareController.stopCar)
+        
         
     def __changeToNextFrame(self) -> None:
         if self.__currentFrame == self.__startFrame:
@@ -356,8 +360,8 @@ class FormulAI:
         elif self.__currentFrame == self.__validationFrame:
             self.__currentFrame.delete()
             self.__currentFrame = self.__trainingFrame
-            self.__continueTraining = True
-            self.__doTrainingLoop()
+            self.__lapTimes = []
+            self.__startTraining()
         elif self.__currentFrame == self.__trainingFrame:
             self.__trainingFrame.delete()
             self.__endProgram()
@@ -425,17 +429,26 @@ class FormulAI:
             self.__validationThread = Thread(target=self.__validateAllInputs)
             self.__validationThread.start()
             
-    def __lapCompleted(self):
-        pass
+    def __updateGraph(self):
+        lapTime = self.__hardwareController.checkNewLapTime()
+        if lapTime != EMPTY:
+            # print("Lap Time:", lapTime)
+            self.__lapTimes.append(lapTime)
+            self.__trainingFrame.updateGraph(enumerate(self.__lapTimes[1:]))
+
+
             
     def __validateCameraWithHall(self):
         pass
             
-    def __getCarStateFromCamera(self):
-        # camera.getinfo
+    def __getCarState(self):
+        print("Camera speed:", self.__camera.getCarInfo(0,0)["carSpeed"])
+        
+        # return INVALID if something is wrong
         pass    
             
-    def __train(self, initState):
+    def __train(self):
+        initState = self.__getCarState()
         # trust that there are no issues
         # determine A1 using QTable and S1
         # Set hardware to A1
@@ -448,7 +461,8 @@ class FormulAI:
         
     def __doTrainingLoop(self) -> None:
         self.showCurrentFrame()
-        print("trained")
+        self.__updateGraph()
+        self.__train()
         # Get current state from camera
         # if camera still valid and not deslotted:
         #   store state into S1
@@ -458,15 +472,17 @@ class FormulAI:
         #   else:
         #     S1 = S2
         #     restart
-        
-
-        
-        
         if self.__continueTraining:
             self.__master.after(REFRESH_AFTER, self.__doTrainingLoop)
         else:
             print("training stopped")
-    
+        
+    def __startTraining(self):
+        self.__continueTraining = True
+        self.__hardwareController.startMeasuringLapTimes()
+        self.__hardwareController.startReading()
+        self.__doTrainingLoop()
+
     def __stopTraining(self) -> None:
         self.__continueTraining = False
     
@@ -477,6 +493,7 @@ class FormulAI:
                 tk.messagebox.showwarning("Closing Error", "Cannot terminate program, as the validation thread is still running. \nPlease wait for the timeout.")
                 safeToClose = False
         elif self.__currentFrame == self.__trainingFrame:
+            self.__hardwareController.stopReading()
             print("Stopping Training loop...")
             self.__stopTraining()
         
