@@ -263,11 +263,11 @@ class CameraInput:
         endCoords, endTime = self.__getCarLocation(zD,zP)
         elapsedTime = endTime-startTime
         
-        info["carLocation"] = endCoords
-        info["carSpeed"] = self.__getCarSpeed(startCoords, endCoords, elapsedTime) # mm / s
+        info["location"] = endCoords
+        info["speed"] = self.__getCarSpeed(startCoords, endCoords, elapsedTime) # mm / s
         info["nextTrackLoc"], info["nextTrackLocDist"] = self.__getNextTrackLocation(startCoords, endCoords) # (x,y), mm
         info["nextTrackLocType"] = self.__trackLocations[info["nextTrackLoc"]]
-        if info["carSpeed"] <= self.__DESLOT_THRESHOLD:
+        if info["speed"] <= self.__DESLOT_THRESHOLD:
             info["deslotted"] = True
         else:
             info["deslotted"] = False

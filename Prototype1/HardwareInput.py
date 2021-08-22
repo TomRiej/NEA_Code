@@ -42,7 +42,6 @@ class HallInput:
                 disp, timeTaken = strLine.split(" ")
                 self.__displacement = int(disp)
                 self.__speed = self.__calcSpeed(float(timeTaken))
-                print("Hall sensor speed:", self.__speed)
                 if self.__measureLapTimes and self.__displacement == self.__startFinishSensor:
                     self.__newLapTime = time() - self.__sensorsPassed[self.__startFinishSensor]
                 self.__sensorsPassed[self.__displacement] = time()
@@ -89,7 +88,11 @@ class HallInput:
         return self.__sensorsPassed
     
     def getCarInfo(self):
-        return self.__displacement, self.__speed
+        info = {}
+        info["displacement"] = self.__displacement
+        info["speed"] = self.__speed
+        info["timeOfMeasurement"] = self.__sensorsPassed[self.__displacement]
+        return info
     
     def closeSerial(self) -> None:
         self.__serialPort.close()

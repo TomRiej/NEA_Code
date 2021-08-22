@@ -4,9 +4,9 @@ from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from threading import Thread
-
-
 from time import time
+
+
 # Import all my modules:
 from CameraModule import *
 from HardwareInputOutputControl import *
@@ -46,6 +46,8 @@ SERIAL_READ_TIMEOUT = 0.5
 DISTANCE_BETWEEN_MAGNETS = 88 # mm
 NUM_HALL_SENSORS = 2
 VALIDATION_TIMEOUT = 10 # seconds
+HALL_VS_CAMERA_SPEED_TOLERANCE = 200 # +- 200 mm/s = 20cm/s
+MAX_TIME_BETWEEN_MEASUREMENTS = 0.05 # s
   # Output
 SERVO_RANGE = [30, 90]
 SLOW_ANGLE = 65
@@ -325,9 +327,9 @@ class FormulAI:
         # self.__master.bind("d", self.__showCameraFeed)
         # self.__master.focus_set()
         
-        self.__startFrame = StartFrame(self.__master, self.__changeToNextFrame)
-        self.__validationFrame = ValidationFrame(self.__master, self.__changeToNextFrame, self.__doValidationRoutine)
-        self.__trainingFrame = TrainingFrame(self.__master, self.__changeToNextFrame, self.__stopTraining)
+        self.__startFrame = StartFrame(self.__master, self.changeToNextFrame)
+        self.__validationFrame = ValidationFrame(self.__master, self.changeToNextFrame, self.__doValidationRoutine)
+        self.__trainingFrame = TrainingFrame(self.__master, self.changeToNextFrame, self.__stopTraining)
         
         self.__currentFrame = self.__startFrame
         
@@ -349,9 +351,14 @@ class FormulAI:
             self.__startFrame.raiseError("ValueError: Camera Module Failed to start")
         except serial.serialutil.SerialException:
             self.__startFrame.raiseError("serial.serialutil.SerialException: the serial port is not connected")
-        
-        
-    def __changeToNextFrame(self) -> None:
+            
+# ==================== Public Methods ========================================        
+# ==================== General 
+    def showCurrentFrame(self) -> None:
+        self.__currentFrame.pack()
+        self.__currentFrame.showContent()
+       
+    def changeToNextFrame(self) -> None:
         if self.__currentFrame == self.__startFrame:
             self.__currentFrame.delete()
             self.__currentFrame = self.__validationFrame
@@ -362,24 +369,13 @@ class FormulAI:
         elif self.__currentFrame == self.__validationFrame:
             self.__currentFrame.delete()
             self.__currentFrame = self.__trainingFrame
-            self.__lapTimes = []
-            self.__startTraining()
+            self.__initTraining()
         elif self.__currentFrame == self.__trainingFrame:
             self.__trainingFrame.delete()
             self.__endProgram()
-            
-    def showCurrentFrame(self) -> None:
-        self.__currentFrame.pack()
-        self.__currentFrame.showContent()
-        
-    # def __showCameraFeed(self, event):
-    #     img = self.__camera.showTestFrames()
-    #     img = Image.fromarray(img)
-    #     img = ImageTk.PhotoImage(img)
-        
-        
-        
-        
+          
+# ==================== Private Methods ========================================
+# ==================== Validation
     def __validateCameraInputs(self):
         self.__statuses[0] = self.__camera.checkCameraIsConnected()
         if self.__statuses[0]:
@@ -430,6 +426,35 @@ class FormulAI:
             # Without threading, the GUI would freeze and be unusable until the routine terminates
             self.__validationThread = Thread(target=self.__validateAllInputs)
             self.__validationThread.start()
+
+
+# ==================== Training     
+    def __learnTrackLocations(self):
+        startTime = time()
+        trackLocationsFound = False
+        trackLocationData = []
+        while not trackLocationsFound and time()-startTime < VALIDATION_TIMEOUT:
+            carInfo = self.__camera.getCarInfo(ZOOM_DEPTH,
+                                               ZOOM_PERCENTAGE)
+            trackLocationData.append(carInfo["nextTrackLoc"])
+            if len(trackLocationData) > 10:
+                if trackLocationData[0] == trackLocationData[-2] == trackLocationData[-1]:
+                    trackLocationsFound, trackLocationOrder = self.__deduceTrackLocationOrder(trackLocationData)
+        
+        if trackLocationsFound:
+            self.__trackLocationOrder = trackLocationOrder
+            print("track Location order determined")
+        else:
+            print("failed to learn track location order")
+            self.__endProgram()
+            
+    def __deduceTrackLocationOrder(self, trackLocationData):
+        finalTrackLocationOrder = []
+        for i, loc in enumerate(trackLocationData[:-1]):
+            if loc == trackLocationData[i+1] and loc not in finalTrackLocationOrder:
+                finalTrackLocationOrder.append(loc)
+        return (len(finalTrackLocationOrder) == NUM_TRACK_LOCATIONS), finalTrackLocationOrder        
+            
             
     def __updateGraph(self):
         lapTime = self.__hardwareController.checkNewLapTime()
@@ -437,24 +462,41 @@ class FormulAI:
             # print("Lap Time:", lapTime)
             self.__lapTimes.append(lapTime)
             self.__trainingFrame.updateGraph(enumerate(self.__lapTimes[1:]))
-
-
-            
-    def __validateCameraWithHall(self):
-        pass
+               
+    
+    def __getValidatedCarSpeed(self, cameraInfo):
+        hallSensorCarInfo = self.__hardwareController.getCarInfo()
+        hallSpeed = hallSensorCarInfo["speed"]
+        cameraSpeed = cameraInfo["speed"]
+        if time()-hallSensorCarInfo["timeOfMeasurement"] < MAX_TIME_BETWEEN_MEASUREMENTS:
+            print(f"comparing: hall:{hallSpeed} vs camera:{cameraSpeed}")
+            if hallSpeed-HALL_VS_CAMERA_SPEED_TOLERANCE <= cameraSpeed <= hallSpeed+HALL_VS_CAMERA_SPEED_TOLERANCE:
+                return (cameraSpeed+hallSpeed) / 2
+            else:
+                return INVALID
+        else:
+            return cameraSpeed
             
     def __getCarState(self):
+        # validating the camera using the hall sensors if possible
         carInfo = self.__camera.getCarInfo(ZOOM_DEPTH,
-                                           ZOOM_PERCENTAGE)
-        print(carInfo["deslotted"])
+                                           ZOOM_PERCENTAGE)   
+        carSpeed = self.__getValidatedCarSpeed(carInfo)
+        if carSpeed == INVALID:
+            return INVALID
+        
+        # formating state 0-00-000
+        severity = str(carInfo["nextTrackLocType"])
+        distanceToCorner = "{:02d}".format(int((carInfo["nextTrackLocDist"]+5)/10)) # cm
+        speed = "{:03d}".format(int((carInfo["speed"]+5)/10)) # cm/s
+        return f"{severity}{distanceToCorner}{speed}"
         
         
-        
-        # return INVALID if something is wrong
-        pass    
+        # return INVALID if something is wrong   
             
     def __train(self):
         initState = self.__getCarState()
+        print(initState)
         # trust that there are no issues
         # determine A1 using QTable and S1
         # Set hardware to A1
@@ -483,14 +525,21 @@ class FormulAI:
         else:
             print("training stopped")
         
-    def __startTraining(self):
-        self.__continueTraining = True
+    def __initTraining(self):
+        self.showCurrentFrame()
+        self.__learnTrackLocations()
         self.__hardwareController.startMeasuringLapTimes()
+        self.__resumeTraining()
+
+    def __resumeTraining(self):
+        self.__continueTraining = True
+        self.__lapTimes = []
         self.__hardwareController.startReading()
         self.__doTrainingLoop()
 
     def __stopTraining(self) -> None:
         self.__continueTraining = False
+        self.__hardwareController.stopReading()
     
     def __endProgram(self) -> None:
         safeToClose = True
@@ -519,3 +568,17 @@ if __name__ == "__main__":
     app = FormulAI(root)
     app.showCurrentFrame()
     root.mainloop()
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        # def __showCameraFeed(self, event):
+    #     img = self.__camera.showTestFrames()
+    #     img = Image.fromarray(img)
+    #     img = ImageTk.PhotoImage(img)
