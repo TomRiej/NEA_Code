@@ -1,5 +1,5 @@
 import numpy as np
-from random import random, choice, randint
+from random import random, choice
 
 
 class QTable:
@@ -58,7 +58,7 @@ class QTable:
                     states.append(f"{s}{d:02d}{v:03d}")
         return states
     
-    def __checkStateIsValid(self, state): # could add int validation
+    def checkStateIsValid(self, state): 
         if not self.__stateShape[0][0] <= int(state[0]) <= self.__stateShape[1][0]:
             return False
         elif not self.__stateShape[0][1] <= int(state[1:3]) <= self.__stateShape[1][1]:
@@ -68,7 +68,7 @@ class QTable:
         else:
             return True
     
-    def __checkActionIsValid(self, action):
+    def checkActionIsValid(self, action): # needed?
         if not self.__actionShape[0] <= int(action) <= self.__actionShape[1]:
             return False
         else:
@@ -91,36 +91,43 @@ class QTable:
         return index
     
     def updateAt(self, state, action, value):
-        if self.__checkStateIsValid(state) and self.__checkActionIsValid(action):
-            row = self.__actionToIndex(action)
-            col = self.__stateToIndex(state)
-            self.__data[row, col] = value
-        else:
-            print("Failed to update as location arguments were invalid")
+        row = self.__actionToIndex(action)
+        col = self.__stateToIndex(state)
+        self.__data[row, col] = value 
+        # print(f"updated at {self.__allStates[col]}, {self.__allActions[row]}. Wrote value: {value}")   
     
-    def getQValue(self, state, action): #idk if necessary
-        pass
+    def getQValue(self, state, action):
+        return self.__data[self.__actionToIndex(action),
+                           self.__stateToIndex(state)]
     
     def getActionWithMaxQValue(self, state):
-        if self.__checkStateIsValid(state):
-            col = self.__stateToIndex(state)
-            index = self.__data.argmax(axis=0)[col]
-            return self.__allActions[index]
-        else:
-            print("Failed to get action with max QValue as state argument was invalid")
-            return None
-            
+        col = self.__stateToIndex(state)
+        index = self.__data.argmax(axis=0)[col]
+        return self.__allActions[index]
+    
+    def getMaxQValueOfState(self, state):
+        col = self.__stateToIndex(state)
+        return np.amax(self.__data, axis=0)[col]
+        
     def getRandomAction(self):
         return choice(self.__allActions)
         
+
     def writeQTableToFile(self):
         with open("QTable.txt", "w") as f:
             f.write("   |  "+",   ".join(self.__allStates))
             f.write("\n---"+"--------"*len(self.__allStates))
             for i, action in enumerate(self.__allActions):
-                f.write(f"\n{action} | "+"  ".join([f"{x:.2E}" for x in self.__data[i]]))
+                formatted = []
+                for col in self.__data[i]:
+                    if col >= 0:
+                        formatted.append(f"{col:.2E}")
+                    else:
+                        formatted.append(f"{col:.1E}")
+                        
+                f.write(f"\n{action} | "+"  ".join(formatted))
        
-    def randomize(self):
+    def randomize(self): # just for testing
         for row in range(len(self.__data)):
             for col in range(len(self.__data[row])):
                 self.__data[row, col] = random()
@@ -147,8 +154,8 @@ if __name__ == '__main__':
     #     rs = "{:06d}".format(randint(int("040000"), int("199999")))
     #     print("random state: ", rs)
     #     print("action w max Q: ", qtable.getActionWithMaxQValue(rs))
-    qtable.updateAt("023423", "67", 69.69)
-    
+    # qtable.updateAt("023423", "67", 69.69)
+    print(qtable.getMaxQValueOfState("169337"))
     qtable.writeQTableToFile()
     
     # qtable.stateToIndex("166345")
