@@ -9,15 +9,15 @@ class QAgent:
         self.__probabilityToExplore = params["probabilityToExplore"]    # decreases throughout training
         
         self.__totalReward = 0.0
+        self.__successfulTrainingIterations = 0
         
-        # error raised if invalid input is handled by script calling this class
+        # error raised if invalid input is handled by external script calling this class
         self.__qTable = QTable(params["stateShape"],
                                params["actionShape"])
         
     def decideAction(self, state):
         if not self.__qTable.checkStateIsValid(state):
-            print(state)
-            raise ValueError("invalid state")
+            return None
         if random() < self.__probabilityToExplore:
             return self.__qTable.getRandomAction()
         else:
@@ -41,6 +41,8 @@ class QAgent:
         newQValue = oldValue + (self.__LEARNING_RATE * learnedValue)
         # updating the table
         self.__qTable.updateAt(curState, action, newQValue)
+        self.__successfulTrainingIterations += 1
+        print("training iteration:", self.__successfulTrainingIterations)
         return True
 
     def reduceProbToExplore(self):
