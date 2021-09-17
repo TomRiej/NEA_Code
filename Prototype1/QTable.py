@@ -6,7 +6,7 @@ class QTable:
     def __init__(self, stateShape, actionShape) -> None:
         self.__stateShape, self.__actionShape = self.__validateShape(stateShape, actionShape)
         if self.__stateShape == self.__actionShape == []:
-            raise ValueError("State or Action shape is invalid")
+            raise ValueError("QTable", "State or Action shape is invalid")
         
         self.__stateIterationsPerCatagory = [len(range(self.__stateShape[0][x], self.__stateShape[1][x], self.__stateShape[2][x])) for x in range(3)]
         
@@ -94,7 +94,7 @@ class QTable:
         row = self.__actionToIndex(action)
         col = self.__stateToIndex(state)
         self.__data[row, col] = value 
-        # print(f"updated at {self.__allStates[col]}, {self.__allActions[row]}. Wrote value: {value}")   
+        print(f"updated at {self.__allStates[col]}, {self.__allActions[row]}. Wrote value: {value}")   
     
     def getQValue(self, state, action):
         return self.__data[self.__actionToIndex(action),
