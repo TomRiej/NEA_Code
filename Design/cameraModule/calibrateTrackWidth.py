@@ -11,7 +11,7 @@ while True:
     _, frame = cap.read()
     
     cv.setMouseCallback("frame", onClick)
-    
+    cv.line(frame, (0, 50), (2000, 50), (0,255,0), 2)
     cv.imshow("frame",frame)
     
     key = cv.waitKey(1)
