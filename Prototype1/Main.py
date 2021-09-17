@@ -10,7 +10,8 @@ from time import time
 # Import all my modules:
 from CameraModule import *
 from HardwareInputOutputControl import *
-# QLearning
+from QAgent import *
+
 
 # DEBUG = True
 
@@ -37,7 +38,7 @@ NUM_TRACK_LOCATIONS = 6
 NUM_CAR_PIXELS_RANGE = [3500, 5500] # optimum car pixels ~= 4200
 ZOOM_DEPTH = 4
 ZOOM_PERCENTAGE = 0.5
-MILLIMETERS_PER_PIXEL = 2000 / 1428 # track is 2m = 2000mm. track is 1428 pixels wide on the camera
+MILLIMETERS_PER_PIXEL = 2000 / 1434 # track is 2m = 2000mm wide. track is x pixels wide on the camera
   # Harware
 SERIAL_PORT_NAME = "/dev/tty.usbmodem14101"
 SERIAL_BAUD_RATE = 9600
@@ -50,9 +51,13 @@ HALL_VS_CAMERA_SPEED_TOLERANCE = 200 # +- 200 mm/s = 20cm/s
 MAX_TIME_BETWEEN_MEASUREMENTS = 0.05 # s
   # Output
 SERVO_RANGE = [30, 90]
-SLOW_ANGLE = 65
+SLOW_ANGLE = 63
   # Q Learning
-# Parameters
+QLEARNING_PARAMS = {"learningRate": 0.5,      
+                    "discountFactor": 0.05,     
+                    "probabilityToExplore": 1,
+                    "stateShape": [[0, 0, 0], [1, 99, 999], [1, 30, 100]],
+                    "actionShape": [50, SERVO_RANGE[1], 5]}
 
 
 class MyFrame(tk.Frame):
@@ -260,7 +265,7 @@ class ValidationFrame(MyFrame):
         
       
 class TrainingFrame(MyFrame):
-    def __init__(self, master: tk.Tk, changeFrameFunc, stopLoopFunc) -> None:
+    def __init__(self, master: tk.Tk, endFunc, stopLoopFunc, resumeFunc) -> None:
         super().__init__(master)
         # setting up Tkinter widgets
         self._title.config(text="Training Screen")
@@ -269,20 +274,33 @@ class TrainingFrame(MyFrame):
     """This is the screen which shows you the progress of the Reinforcement
     learning algorithm that is being applied to the car.""")
         
-        self.__stopButton = tk.Button(self,
+        self.__stopFunc = stopLoopFunc
+        self.__resumeFunc = resumeFunc
+        self.__stopAndResumeButton = tk.Button(self,
                                       height=2,
                                       width=15,
                                       text="STOP",
                                       fg=RED,
                                       font=(FONT, 25),
-                                      command=stopLoopFunc)
+                                      command=self.__stopFunc)
+        
+        
+        
+        
+        # self.__outputTextArea = tk.Text(self,
+        #                          height=50,
+        #                          width=20,
+        #                          bg="lightgrey")
+        # self.__outputTextArea.insert(tk.END, "Output Console:")
+        
+        
         
         self.__endProgramButton = tk.Button(self,
                                                height=2,
                                                width=15,
                                                text="End Program",
                                                font=(FONT, 25),
-                                               command=changeFrameFunc)
+                                               command=endFunc)
         # setting up the graphs
         # I'm using both:
         # https://www.geeksforgeeks.org/how-to-embed-matplotlib-charts-in-tkinter-gui/
@@ -293,6 +311,15 @@ class TrainingFrame(MyFrame):
         self.__myPlot = self.__fig.add_subplot(111)
         self.__canvasGraph = None
         
+    def showStopButton(self):
+        self.__stopAndResumeButton.config(text="STOP",
+                                          fg=RED,
+                                          command=self.__stopFunc)
+        
+    def showResumeButton(self):
+        self.__stopAndResumeButton.config(text="Resume",
+                                          fg=GREEN,
+                                          command=self.__resumeFunc)
         
     def updateGraph(self, newData: list) -> None:
         xList = []
@@ -312,8 +339,42 @@ class TrainingFrame(MyFrame):
         self._infoMessage.grid(row=1, columnspan=2)
         if self.__canvasGraph is not None:
             self.__canvasGraph.get_tk_widget().grid(row=2, columnspan=2)
-        self.__stopButton.grid(row=3, column=0, columnspan=1)
+        self.__stopAndResumeButton.grid(row=3, column=0, columnspan=1)
         self.__endProgramButton.grid(row=3, column=1, columnspan=1)
+        # self.__outputTextArea.grid(row=0, rowspan=4, column=2)
+        
+class OutputConsole(tk.Toplevel):
+    def __init__(self, master):
+        tk.Toplevel.__init__(self, master,
+                             width=WINDOW_SIZE[0],
+                             height=WINDOW_SIZE[0],
+                             bg=BG_COLOUR)
+        self.__master = master
+        self.title("Output Console")
+        self.iconify()
+        
+        self.__outputText = ""
+        self.__outputTextArea = tk.Text(self,
+                                        bg=BG_COLOUR,
+                                        yscrollcommand=True,
+                                        state="disabled")
+
+        self.printToConsole("This console shows you what the program is doing")
+        
+        
+    def showConsole(self):
+        x = self.__master.winfo_x() + WINDOW_SIZE[0] + 20
+        y = self.__master.winfo_y()
+        self.geometry(f"+{x}+{y}")
+        self.deiconify()
+        self.transient(self.__master)
+        self.__outputTextArea.pack(expand=True, fill="both")
+        
+    def printToConsole(self, text):
+        self.__outputTextArea.config(state="normal")
+        self.__outputTextArea.insert("end", self.__outputText + f": {text}\n")
+        self.__outputTextArea.config(state="disabled")
+        self.__outputTextArea.see("end")
                 
 
 class FormulAI:
@@ -323,13 +384,20 @@ class FormulAI:
         self.__master.minsize(width=WINDOW_SIZE[0],
                               height=WINDOW_SIZE[1])
         self.__master.title("FormulAI")
+        self.__master.tk_setPalette(background=BG_COLOUR)
         self.__master.protocol("WM_DELETE_WINDOW", self.__endProgram) # for Thread exception handling
-        # self.__master.bind("d", self.__showCameraFeed)
-        # self.__master.focus_set()
+        self.__outputConsole = OutputConsole(master)
         
-        self.__startFrame = StartFrame(self.__master, self.changeToNextFrame)
-        self.__validationFrame = ValidationFrame(self.__master, self.changeToNextFrame, self.__doValidationRoutine)
-        self.__trainingFrame = TrainingFrame(self.__master, self.changeToNextFrame, self.__stopTraining)
+        
+        self.__startFrame = StartFrame(self.__master, 
+                                       self.changeToNextFrame)
+        self.__validationFrame = ValidationFrame(self.__master, 
+                                                 self.changeToNextFrame, 
+                                                 self.__doValidationRoutine)
+        self.__trainingFrame = TrainingFrame(self.__master, 
+                                             self.changeToNextFrame, 
+                                             self.__stopTraining, 
+                                             self.__resumeTraining)
         
         self.__currentFrame = self.__startFrame
         
@@ -341,16 +409,18 @@ class FormulAI:
                                         SAMPLE_ITERATIONS,
                                         MILLIMETERS_PER_PIXEL)
             
+            self.__qAgent = QAgent(QLEARNING_PARAMS)
+            
             self.__hardwareController = HardwareController(SERIAL_PORT_NAME,
                                                            SERIAL_BAUD_RATE,
                                                            SERIAL_READ_TIMEOUT,
                                                            DISTANCE_BETWEEN_MAGNETS,
                                                            SERVO_RANGE)
             self.__master.after(SMALL_TIME_DELAY, self.__hardwareController.stopCar)
-        except ValueError:
-            self.__startFrame.raiseError("ValueError: Camera Module Failed to start")
+        except ValueError as error:
+            self.__startFrame.raiseError(f"{error.args[0]} Error: {error.args[1]}")
         except serial.serialutil.SerialException:
-            self.__startFrame.raiseError("serial.serialutil.SerialException: the serial port is not connected")
+            self.__startFrame.raiseError("serial.serialutil.SerialException: The serial port is not connected")
             
 # ==================== Public Methods ========================================        
 # ==================== General 
@@ -364,17 +434,24 @@ class FormulAI:
             self.__currentFrame = self.__validationFrame
             self.showCurrentFrame()
             self.__validationRoutineActive = False
-            self.__hardwareController.setServoAngle(SLOW_ANGLE)
+            self.__startMovingCarAt(SLOW_ANGLE)
             self.__master.after(SMALL_TIME_DELAY, self.__doValidationRoutine)
         elif self.__currentFrame == self.__validationFrame:
             self.__currentFrame.delete()
             self.__currentFrame = self.__trainingFrame
+            self.__outputConsole.showConsole()
             self.__initTraining()
         elif self.__currentFrame == self.__trainingFrame:
-            self.__trainingFrame.delete()
             self.__endProgram()
           
 # ==================== Private Methods ========================================
+# ==================== General
+    def __startMovingCarAt(self, angle):
+        # method needed to overcome friction when starting to move
+        self.__hardwareController.setServoAngle(SERVO_RANGE[1])
+        self.__master.after(350, self.__hardwareController.setServoAngle, angle)
+        
+        
 # ==================== Validation
     def __validateCameraInputs(self):
         self.__statuses[0] = self.__camera.checkCameraIsConnected()
@@ -429,33 +506,6 @@ class FormulAI:
 
 
 # ==================== Training     
-    def __learnTrackLocations(self):
-        startTime = time()
-        trackLocationsFound = False
-        trackLocationData = []
-        while not trackLocationsFound and time()-startTime < VALIDATION_TIMEOUT:
-            carInfo = self.__camera.getCarInfo(ZOOM_DEPTH,
-                                               ZOOM_PERCENTAGE)
-            trackLocationData.append(carInfo["nextTrackLoc"])
-            if len(trackLocationData) > 10:
-                if trackLocationData[0] == trackLocationData[-2] == trackLocationData[-1]:
-                    trackLocationsFound, trackLocationOrder = self.__deduceTrackLocationOrder(trackLocationData)
-        
-        if trackLocationsFound:
-            self.__trackLocationOrder = trackLocationOrder
-            print("track Location order determined")
-        else:
-            print("failed to learn track location order")
-            self.__endProgram()
-            
-    def __deduceTrackLocationOrder(self, trackLocationData):
-        finalTrackLocationOrder = []
-        for i, loc in enumerate(trackLocationData[:-1]):
-            if loc == trackLocationData[i+1] and loc not in finalTrackLocationOrder:
-                finalTrackLocationOrder.append(loc)
-        return (len(finalTrackLocationOrder) == NUM_TRACK_LOCATIONS), finalTrackLocationOrder        
-            
-            
     def __updateGraph(self):
         lapTime = self.__hardwareController.checkNewLapTime()
         if lapTime != EMPTY:
@@ -463,13 +513,13 @@ class FormulAI:
             self.__lapTimes.append(lapTime)
             self.__trainingFrame.updateGraph(enumerate(self.__lapTimes[1:]))
                
-    
     def __getValidatedCarSpeed(self, cameraInfo):
         hallSensorCarInfo = self.__hardwareController.getCarInfo()
         hallSpeed = hallSensorCarInfo["speed"]
         cameraSpeed = cameraInfo["speed"]
-        if time()-hallSensorCarInfo["timeOfMeasurement"] < MAX_TIME_BETWEEN_MEASUREMENTS:
-            print(f"comparing: hall:{hallSpeed} vs camera:{cameraSpeed}")
+        timeBetween = abs(cameraInfo["timeOfMeasurement"] - hallSensorCarInfo["timeOfMeasurement"])
+        if timeBetween < MAX_TIME_BETWEEN_MEASUREMENTS:
+            self.__outputConsole.printToConsole(f"comparing: hall:{hallSpeed} vs camera:{cameraSpeed}")
             if hallSpeed-HALL_VS_CAMERA_SPEED_TOLERANCE <= cameraSpeed <= hallSpeed+HALL_VS_CAMERA_SPEED_TOLERANCE:
                 return (cameraSpeed+hallSpeed) / 2
             else:
@@ -482,64 +532,80 @@ class FormulAI:
         carInfo = self.__camera.getCarInfo(ZOOM_DEPTH,
                                            ZOOM_PERCENTAGE)   
         carSpeed = self.__getValidatedCarSpeed(carInfo)
+        
+        # checking that the next track location prediction is feasable (based on the order determined earlier)
+        # if not self.__checkNextTrackLocIsValid(carInfo["nextTrackLoc"]):
+        #     return INVALID, False
+        
+        # print(carSpeed)
         if carSpeed == INVALID:
-            return INVALID
+            return INVALID, False
         
         # formating state 0-00-000
         severity = str(carInfo["nextTrackLocType"])
         distanceToCorner = "{:02d}".format(int((carInfo["nextTrackLocDist"]+5)/10)) # cm
         speed = "{:03d}".format(int((carInfo["speed"]+5)/10)) # cm/s
-        return f"{severity}{distanceToCorner}{speed}"
+        return f"{severity}{distanceToCorner}{speed}", carInfo["deslotted"] 
+          
+  
         
-        
-        # return INVALID if something is wrong   
-            
     def __train(self):
-        initState = self.__getCarState()
-        print(initState)
-        # trust that there are no issues
-        # determine A1 using QTable and S1
-        # Set hardware to A1
-        # wait small delay
-        # Get current state and deslotted? from camera (S2)
-        # RInst = calc reward (speed, lapsNoDeslot, deslotted?)
-        # calc and update new Qvalue
-        # 
-        pass
+        initState, carHasDeslotted = self.__getCarState()
+        return True, carHasDeslotted
+        # if initState is INVALID:
+        #     print("INVALID", initState)
+        #     return False
+        # action = self.__qAgent.decideAction(initState)
+        # self.__hardwareController.setServoAngle(int(action))
+        # startWaitTime = time()
+        # while time() - startWaitTime < 1.5: # this does work but i dont like it since it goes against how GUIs should be used
+        #     pass
+        # endState, carHasDeslotted = self.__getCarState()
+        # if endState is INVALID:
+        #     print("INVALID", endState)
+        #     return False
+        # instReward = self.__qAgent.calcInstantReward(int(endState[3:]), len(self.__lapTimes), carHasDeslotted)
+        # print(f"\nstart state: {initState}\nend state: {endState}\nreward{instReward}\ndesslotted: {carHasDeslotted}")
+        # if self.__qAgent.train(initState, endState, action, instReward):
+        #     print("trained")
+        # else:
+        #     print("failed to train")
+        
         
     def __doTrainingLoop(self) -> None:
         self.showCurrentFrame()
         self.__updateGraph()
-        self.__train()
-        # Get current state from camera
-        # if camera still valid and not deslotted:
-        #   store state into S1
-        #   
-        #   if deslotted:
-        #     wait for fix and restart
-        #   else:
-        #     S1 = S2
-        #     restart
+        success, carHasDeslotted = self.__train()
+        if carHasDeslotted:
+            self.__outputConsole.printToConsole("computer thinks car has deslotted")
+            self.__stopTraining()
         if self.__continueTraining:
             self.__master.after(REFRESH_AFTER, self.__doTrainingLoop)
         else:
-            print("training stopped")
+            self.__outputConsole.printToConsole("Training stopped")
         
     def __initTraining(self):
         self.showCurrentFrame()
-        self.__learnTrackLocations()
+        self.__hardwareController.stopCar()
+        # self.__learnTrackLocations()
         self.__hardwareController.startMeasuringLapTimes()
-        self.__resumeTraining()
+        self.__master.after(SMALL_TIME_DELAY, self.__resumeTraining)
 
     def __resumeTraining(self):
+        self.__outputConsole.printToConsole("Training resumed")
         self.__continueTraining = True
         self.__lapTimes = []
+        # self.__curClosestTrackLoc = None
+        self.__trainingFrame.showStopButton()
         self.__hardwareController.startReading()
-        self.__doTrainingLoop()
+        self.__startMovingCarAt(SLOW_ANGLE)
+        self.__master.after(SMALL_TIME_DELAY, self.__doTrainingLoop) # allow time for the car to start moving
 
     def __stopTraining(self) -> None:
         self.__continueTraining = False
+        self.__hardwareController.stopCar()
         self.__hardwareController.stopReading()
+        self.__trainingFrame.showResumeButton()
     
     def __endProgram(self) -> None:
         safeToClose = True
@@ -551,13 +617,14 @@ class FormulAI:
             self.__hardwareController.stopReading()
             print("Stopping Training loop...")
             self.__stopTraining()
+            self.__trainingFrame.delete()
         
         if safeToClose:
             print("Closing Serial Ports...")
             self.__hardwareController.close()
-            print("Closing Camera Input...")
+            print("Releasing Camera Input...")
             self.__camera.close()
-            self.__master.destroy()
+            self.__master.after(SMALL_TIME_DELAY, self.__master.destroy)
         
         print("Complete")
         
