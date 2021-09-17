@@ -8,6 +8,7 @@ from threading import Thread
 
 class HallInput:
     def __init__(self, portName, baudRate, timeout, distBetweenMagnets: float) -> None:
+        # error raised if serial port isnt available is handled by external script
         self.__serialPort = serial.Serial(portName, baudRate, timeout=timeout)
         # sleep(2) # allow time for the serial object to connect to port, tkinter doesnt like time.sleep
         

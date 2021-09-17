@@ -2,6 +2,7 @@ import serial
 
 class ServoController:
     def __init__(self, portName, baudRate, angleRange) -> None:
+        # error raised if serial port isnt available is handled by external script
         self.__ser = serial.Serial(portName, baudRate)
         
         self.__prevAngle = -1
