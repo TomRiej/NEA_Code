@@ -38,7 +38,7 @@ class CameraInput:
         
         # validating parameters
         if self.__GREEN_RANGE == [] or self.__ORANGE_RANGE == []:
-            raise ValueError("Invalid colour range passed in")
+            raise ValueError("Camera", "Invalid colour range passed in")
         
         measurementFrame = self.__readFrame()
         if self.__cameraIsWorking:
@@ -265,6 +265,7 @@ class CameraInput:
         
         info["location"] = endCoords
         info["speed"] = self.__getCarSpeed(startCoords, endCoords, elapsedTime) # mm / s
+        info["timeOfMeasurement"] = endTime
         info["nextTrackLoc"], info["nextTrackLocDist"] = self.__getNextTrackLocation(startCoords, endCoords) # (x,y), mm
         info["nextTrackLocType"] = self.__trackLocations[info["nextTrackLoc"]]
         if info["speed"] <= self.__DESLOT_THRESHOLD:
