@@ -40,3 +40,53 @@ params = {"stateRange": [0,5],
           "probabilityToExplore": 0.1}
 
 agent = QAgent(**params)
+
+
+
+# = random code
+
+# def __learnTrackLocations(self):
+    #     startTime = time()
+    #     trackLocationsFound = False
+    #     trackLocationData = []
+    #     while not trackLocationsFound and time()-startTime < VALIDATION_TIMEOUT:
+    #         carInfo = self.__camera.getCarInfo(ZOOM_DEPTH,
+    #                                            ZOOM_PERCENTAGE)
+    #         trackLocationData.append(carInfo["nextTrackLoc"])
+    #         if len(trackLocationData) > 10:
+    #             if trackLocationData[0] == trackLocationData[-2] == trackLocationData[-1]:
+    #                 trackLocationsFound, trackLocationOrder = self.__deduceTrackLocationOrder(trackLocationData)
+        
+    #     if trackLocationsFound:
+    #         self.__trackLocationOrder = trackLocationOrder
+    #         print(f"track Location order determined: {trackLocationOrder} ")
+    #     else:
+    #         print("failed to learn track location order")
+    #         self.__endProgram()
+            
+    # def __deduceTrackLocationOrder(self, trackLocationData):
+    #     finalTrackLocationOrder = []
+    #     for i, loc in enumerate(trackLocationData[:-1]):
+    #         if loc == trackLocationData[i+1] and loc not in finalTrackLocationOrder:
+    #             finalTrackLocationOrder.append(loc)
+    #     return (len(finalTrackLocationOrder) == NUM_TRACK_LOCATIONS), finalTrackLocationOrder        
+            
+    # def __checkNextTrackLocIsValid(self, predictedTrackLoc):
+    #     print("predicted", predictedTrackLoc)
+    #     if self.__curClosestTrackLoc is None:
+    #         self.__curClosestTrackLoc = predictedTrackLoc
+    #         return True
+    #     elif predictedTrackLoc == self.__curClosestTrackLoc:
+    #         print("track Location the same")
+    #         return True
+    #     nextLocIndex = self.__trackLocationOrder.index(self.__curClosestTrackLoc) + 1
+    #     if nextLocIndex >= len(self.__trackLocationOrder):
+    #         nextLocIndex = 0
+    #     print(nextLocIndex)
+    #     nextPossibleTrackLoc = self.__trackLocationOrder[nextLocIndex]
+    #     print("next: ", nextPossibleTrackLoc)
+    #     if predictedTrackLoc == nextPossibleTrackLoc:
+    #         self.__curClosestTrackLoc = predictedTrackLoc
+    #         return True
+    #     else:
+    #         return False
