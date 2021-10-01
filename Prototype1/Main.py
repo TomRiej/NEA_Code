@@ -13,7 +13,7 @@ from HardwareInputOutputControl import *
 from QAgent import *
 
 
-# DEBUG = True
+DEBUG = False
 
 # Defining constants 
   # UI
@@ -33,12 +33,12 @@ INVALID = -1
 GREEN_RANGE = [[70, 190, 160], [120, 255, 220]]
 ORANGE_RANGE = [[50, 110, 200], [90, 190, 255]]
 SAMPLE_ITERATIONS = 50
-DESLOT_THRESHOLD = 0
+DESLOT_THRESHOLD = 0.0
 NUM_TRACK_LOCATIONS = 6
 NUM_CAR_PIXELS_RANGE = [3500, 5500] # optimum car pixels ~= 4200
 ZOOM_DEPTH = 4
 ZOOM_PERCENTAGE = 0.5
-MILLIMETERS_PER_PIXEL = 2000 / 1434 # track is 2m = 2000mm wide. track is x pixels wide on the camera
+MILLIMETERS_PER_PIXEL = 2000 / 1432 # track is 2m = 2000mm wide. track is x pixels wide on the camera
   # Harware
 SERIAL_PORT_NAME = "/dev/tty.usbmodem14101"
 SERIAL_BAUD_RATE = 9600
@@ -51,7 +51,7 @@ HALL_VS_CAMERA_SPEED_TOLERANCE = 200 # +- 200 mm/s = 20cm/s
 MAX_TIME_BETWEEN_MEASUREMENTS = 0.05 # s
   # Output
 SERVO_RANGE = [30, 90]
-SLOW_ANGLE = 63
+SLOW_ANGLE = 65
   # Q Learning
 QLEARNING_PARAMS = {"learningRate": 0.5,      
                     "discountFactor": 0.05,     
@@ -376,7 +376,39 @@ class OutputConsole(tk.Toplevel):
         self.__outputTextArea.config(state="disabled")
         self.__outputTextArea.see("end")
                 
-
+if DEBUG:
+    class CamImageConsole(tk.Toplevel):
+        def __init__(self, master):
+            tk.Toplevel.__init__(self, master,
+                             width=650,
+                             height=480,
+                             bg=BG_COLOUR)
+            self.__master = master
+            self.title("Camera Feed")
+            self.iconify()
+            
+            self.__imageCanvas = tk.Canvas(self,
+                                           width=650,
+                                           height=370)
+        
+        def showConsole(self):
+            x = self.__master.winfo_x() + WINDOW_SIZE[0] + 20
+            y = self.__master.winfo_y() + WINDOW_SIZE[1] - 20
+            self.geometry(f"+{x}+{y}")
+            self.deiconify()
+            self.transient(self.__master)
+            self.__imageCanvas.pack(expand=True, fill="both")
+            
+        def updateImage(self, image):
+            self.__imageCanvas.delete("all")
+            image = Image.fromarray(image)
+            self.__imageCanvas.image = ImageTk.PhotoImage(image.resize((640, 360),
+                                                                       Image.ANTIALIAS))
+            self.__imageCanvas.create_image(650//2, 370//2,
+                                            image=self.__imageCanvas.image)
+            
+            
+        
 class FormulAI:
     def __init__(self, master: tk.Tk) -> None:
         # User Interface
@@ -386,7 +418,10 @@ class FormulAI:
         self.__master.title("FormulAI")
         self.__master.tk_setPalette(background=BG_COLOUR)
         self.__master.protocol("WM_DELETE_WINDOW", self.__endProgram) # for Thread exception handling
+        self.__master.bind("<space>", self.manualDeslot)
         self.__outputConsole = OutputConsole(master)
+        if DEBUG:
+            self.__camImgConsole = CamImageConsole(master)
         
         
         self.__startFrame = StartFrame(self.__master, 
@@ -440,10 +475,14 @@ class FormulAI:
             self.__currentFrame.delete()
             self.__currentFrame = self.__trainingFrame
             self.__outputConsole.showConsole()
+            if DEBUG:
+                self.__camImgConsole.showConsole()
             self.__initTraining()
         elif self.__currentFrame == self.__trainingFrame:
             self.__endProgram()
           
+    def manualDeslot(self, event):
+        print("deslot")
 # ==================== Private Methods ========================================
 # ==================== General
     def __startMovingCarAt(self, angle):
@@ -550,35 +589,56 @@ class FormulAI:
   
         
     def __train(self):
+        # get the initial state
         initState, carHasDeslotted = self.__getCarState()
-        return True, carHasDeslotted
-        # if initState is INVALID:
-        #     print("INVALID", initState)
-        #     return False
-        # action = self.__qAgent.decideAction(initState)
-        # self.__hardwareController.setServoAngle(int(action))
-        # startWaitTime = time()
-        # while time() - startWaitTime < 1.5: # this does work but i dont like it since it goes against how GUIs should be used
-        #     pass
-        # endState, carHasDeslotted = self.__getCarState()
-        # if endState is INVALID:
-        #     print("INVALID", endState)
-        #     return False
-        # instReward = self.__qAgent.calcInstantReward(int(endState[3:]), len(self.__lapTimes), carHasDeslotted)
-        # print(f"\nstart state: {initState}\nend state: {endState}\nreward{instReward}\ndesslotted: {carHasDeslotted}")
-        # if self.__qAgent.train(initState, endState, action, instReward):
-        #     print("trained")
-        # else:
-        #     print("failed to train")
+        if initState is INVALID:
+            print("INVALID", initState)
+            return False, False
+        elif carHasDeslotted:
+            return False, True
+        
+        # Decide an action
+        action = self.__qAgent.decideAction(initState)
+        self.__hardwareController.setServoAngle(int(action))
+        
+        # Wait some time before calculating reward
+        startWaitTime = time()
+        while time() - startWaitTime < SMALL_TIME_DELAY//1000: # this does work but i dont like it since it goes against how GUIs should be used
+            pass
+        
+        # get the ending state of the car
+        endState, carHasDeslotted = self.__getCarState()
+        if endState is INVALID:
+            print("INVALID", endState)
+            return False, False
+        
+        # Calculate the reward
+        instReward = self.__qAgent.calcInstantReward(int(endState[3:]), len(self.__lapTimes), carHasDeslotted)
+        print(f"\nstart state: {initState}\nend state: {endState}\nreward{instReward}\ndesslotted: {carHasDeslotted}")
+        
+        # train the QAgent with this data
+        if self.__qAgent.train(initState, endState, action, instReward):
+            print("trained")
+            return True, carHasDeslotted
+        else:
+            print("failed to train")
+            return False, carHasDeslotted
         
         
     def __doTrainingLoop(self) -> None:
         self.showCurrentFrame()
         self.__updateGraph()
+        
+        # attempt to train the car
         success, carHasDeslotted = self.__train()
-        if carHasDeslotted:
-            self.__outputConsole.printToConsole("computer thinks car has deslotted")
-            self.__stopTraining()
+        if success:
+            if carHasDeslotted:
+                self.__outputConsole.printToConsole("computer thinks car has deslotted")
+                self.__stopTraining()
+        else:
+            print("--- malfunc ---")
+            
+        # loop
         if self.__continueTraining:
             self.__master.after(REFRESH_AFTER, self.__doTrainingLoop)
         else:
@@ -608,6 +668,7 @@ class FormulAI:
         self.__trainingFrame.showResumeButton()
     
     def __endProgram(self) -> None:
+        print("\n\n***** Closing *****\n")
         safeToClose = True
         if self.__currentFrame == self.__validationFrame:
             if self.__validationThread.is_alive():
@@ -624,9 +685,10 @@ class FormulAI:
             self.__hardwareController.close()
             print("Releasing Camera Input...")
             self.__camera.close()
-            self.__master.after(SMALL_TIME_DELAY, self.__master.destroy)
+            self.__master.destroy()
+            # self.__master.after(SMALL_TIME_DELAY, self.__master.destroy)
         
-        print("Complete")
+        print("\n***** Complete *****\n")
         
         
 
