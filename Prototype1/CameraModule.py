@@ -265,6 +265,7 @@ class CameraInput:
         
         info["location"] = endCoords
         info["speed"] = self.__getCarSpeed(startCoords, endCoords, elapsedTime) # mm / s
+        print("--Speed: ", info["speed"])
         info["timeOfMeasurement"] = endTime
         info["nextTrackLoc"], info["nextTrackLocDist"] = self.__getNextTrackLocation(startCoords, endCoords) # (x,y), mm
         info["nextTrackLocType"] = self.__trackLocations[info["nextTrackLoc"]]

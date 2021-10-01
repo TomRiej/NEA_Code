@@ -43,6 +43,7 @@ class QAgent:
         self.__qTable.updateAt(curState, action, newQValue)
         self.__successfulTrainingIterations += 1
         print("training iteration:", self.__successfulTrainingIterations)
+        self.reduceProbToExplore()
         return True
 
     def reduceProbToExplore(self):
