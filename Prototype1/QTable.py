@@ -94,7 +94,7 @@ class QTable:
         row = self.__actionToIndex(action)
         col = self.__stateToIndex(state)
         self.__data[row, col] = value 
-        print(f"updated at {self.__allStates[col]}, {self.__allActions[row]}. Wrote value: {value}")   
+        return f"Updated at {self.__allStates[col]}, {self.__allActions[row]}.\nWrote value: {value}\n"   
     
     def getQValue(self, state, action):
         return self.__data[self.__actionToIndex(action),
