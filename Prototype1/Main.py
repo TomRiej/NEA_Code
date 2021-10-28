@@ -51,13 +51,13 @@ HALL_VS_CAMERA_SPEED_TOLERANCE = 200 # +- 200 mm/s = 20cm/s
 MAX_TIME_BETWEEN_MEASUREMENTS = 0.05 # s
   # Output
 SERVO_RANGE = [30, 90]
-SLOW_ANGLE = 65
+SLOW_ANGLE = 62
   # Q Learning
 QLEARNING_PARAMS = {"learningRate": 0.5,      
                     "discountFactor": 0.05,     
                     "probabilityToExplore": 1,
                     "stateShape": [[0, 0, 0], [1, 99, 999], [1, 30, 100]],
-                    "actionShape": [50, SERVO_RANGE[1], 5]}
+                    "actionShape": [54, 76, 2]}
 
 
 class MyFrame(tk.Frame):
@@ -371,6 +371,7 @@ class OutputConsole(tk.Toplevel):
         self.__outputTextArea.pack(expand=True, fill="both")
         
     def printToConsole(self, text):
+        print(text)
         self.__outputTextArea.config(state="normal")
         self.__outputTextArea.insert("end", self.__outputText + f": {text}\n")
         self.__outputTextArea.config(state="disabled")
@@ -407,7 +408,55 @@ if DEBUG:
             self.__imageCanvas.create_image(650//2, 370//2,
                                             image=self.__imageCanvas.image)
             
-            
+class Trainer:
+    def __init__(self, agent, hardwareController, waitTime):
+        self.__hardwareController = hardwareController
+        self.__qAgent = agent
+        self.__waitTime = waitTime
+        
+    def reset(self):
+        self.__initState = None
+        self.__isActive = False
+        self.__timeStart = None
+        
+    def startTrainingIteration(self, initState):
+        action = self.__qAgent.decideAction(initState)
+        if action is None: # means initstate was invalid 
+            return INVALID
+        self.__initState = initState
+        self.__actionChosen = action
+        self.__hardwareController.setServoAngle(int(action))
+        self.__timeStart = time()
+        self.__isActive = True
+    
+    def endTrainingIteration(self, endState, lapsCompleted, carHasDeslotted):
+        instReward = self.__qAgent.calcInstantReward(int(endState[3:]),
+                                                    lapsCompleted, 
+                                                    carHasDeslotted)
+        trainingSuccess, feedback = self.__qAgent.train(self.__initState,
+                                                        endState,
+                                                        self.__actionChosen,
+                                                        instReward)
+        self.__isActive = False
+        feedback += f"Start state: {self.__initState}\n"
+        feedback += f"Action chosen: {self.__actionChosen}\n"
+        feedback += f"End state: {endState}\n"
+        feedback += f"Reward: {instReward}\n"
+        feedback += f"Deslotted: {carHasDeslotted}\n"
+        return trainingSuccess, feedback
+        
+    
+    def checkIsActive(self):
+        return self.__isActive
+    
+    def checkDoneWaiting(self):
+        return time() - self.__timeStart > self.__waitTime
+    
+    
+        
+        
+        
+         
         
 class FormulAI:
     def __init__(self, master: tk.Tk) -> None:
@@ -472,17 +521,28 @@ class FormulAI:
             self.__startMovingCarAt(SLOW_ANGLE)
             self.__master.after(SMALL_TIME_DELAY, self.__doValidationRoutine)
         elif self.__currentFrame == self.__validationFrame:
+            # delete old frame and switch to new one
             self.__currentFrame.delete()
             self.__currentFrame = self.__trainingFrame
             self.__outputConsole.showConsole()
-            if DEBUG:
-                self.__camImgConsole.showConsole()
-            self.__initTraining()
+            self.showCurrentFrame()
+            # initialise the trainer for the car
+            self.__trainer = Trainer(self.__qAgent, 
+                                     self.__hardwareController,
+                                     3)
+            # stop the car so that we can use resume frame to restart it
+            self.__hardwareController.stopCar()
+            self.__hardwareController.startMeasuringLapTimes()
+            self.__master.after(SMALL_TIME_DELAY, self.__resumeTraining)
         elif self.__currentFrame == self.__trainingFrame:
             self.__endProgram()
           
     def manualDeslot(self, event):
-        print("deslot")
+        if self.__currentFrame == self.__trainingFrame:
+            self.__carHasDeslotted = True
+            self.__outputConsole.printToConsole("You say the car has deslotted")
+        else:
+            print("no")
 # ==================== Private Methods ========================================
 # ==================== General
     def __startMovingCarAt(self, angle):
@@ -578,86 +638,63 @@ class FormulAI:
         
         # print(carSpeed)
         if carSpeed == INVALID:
-            return INVALID, False
+            return INVALID
         
         # formating state 0-00-000
         severity = str(carInfo["nextTrackLocType"])
         distanceToCorner = "{:02d}".format(int((carInfo["nextTrackLocDist"]+5)/10)) # cm
         speed = "{:03d}".format(int((carInfo["speed"]+5)/10)) # cm/s
-        return f"{severity}{distanceToCorner}{speed}", carInfo["deslotted"] 
+        return f"{severity}{distanceToCorner}{speed}"
           
-  
-        
-    def __train(self):
-        # get the initial state
-        initState, carHasDeslotted = self.__getCarState()
-        if initState is INVALID:
-            print("INVALID", initState)
-            return False, False
-        elif carHasDeslotted:
-            return False, True
-        
-        # Decide an action
-        action = self.__qAgent.decideAction(initState)
-        self.__hardwareController.setServoAngle(int(action))
-        
-        # Wait some time before calculating reward
-        startWaitTime = time()
-        while time() - startWaitTime < SMALL_TIME_DELAY//1000: # this does work but i dont like it since it goes against how GUIs should be used
-            pass
-        
-        # get the ending state of the car
-        endState, carHasDeslotted = self.__getCarState()
-        if endState is INVALID:
-            print("INVALID", endState)
-            return False, False
-        
-        # Calculate the reward
-        instReward = self.__qAgent.calcInstantReward(int(endState[3:]), len(self.__lapTimes), carHasDeslotted)
-        print(f"\nstart state: {initState}\nend state: {endState}\nreward{instReward}\ndesslotted: {carHasDeslotted}")
-        
-        # train the QAgent with this data
-        if self.__qAgent.train(initState, endState, action, instReward):
-            print("trained")
-            return True, carHasDeslotted
-        else:
-            print("failed to train")
-            return False, carHasDeslotted
         
         
     def __doTrainingLoop(self) -> None:
+        # show UI
         self.showCurrentFrame()
         self.__updateGraph()
         
-        # attempt to train the car
-        success, carHasDeslotted = self.__train()
-        if success:
-            if carHasDeslotted:
-                self.__outputConsole.printToConsole("computer thinks car has deslotted")
-                self.__stopTraining()
+        # if a training iteration has already started
+        if self.__trainer.checkIsActive():
+            if self.__trainer.checkDoneWaiting():
+                endState = self.__getCarState()
+                if endState is not INVALID:
+                    success, feedbackData = self.__trainer.endTrainingIteration(endState,
+                                                                                len(self.__lapTimes),
+                                                                                self.__carHasDeslotted)
+                    if success:
+                        self.__outputConsole.printToConsole(feedbackData)
+                    else:
+                        print("fail")
+                else:
+                    self.__trainer.reset()
+                    print("invalid end state, trainer reset")
+                if self.__carHasDeslotted:
+                    self.__stopTraining()
+
+        # if a training iteration has not started yet
         else:
-            print("--- malfunc ---")
-            
-        # loop
+            initState = self.__getCarState()
+            if initState is not INVALID:
+                self.__trainer.startTrainingIteration(initState)
+            else:
+                print("invalid init state")
+        
+                    
+        # loop        
         if self.__continueTraining:
             self.__master.after(REFRESH_AFTER, self.__doTrainingLoop)
         else:
             self.__outputConsole.printToConsole("Training stopped")
         
-    def __initTraining(self):
-        self.showCurrentFrame()
-        self.__hardwareController.stopCar()
-        # self.__learnTrackLocations()
-        self.__hardwareController.startMeasuringLapTimes()
-        self.__master.after(SMALL_TIME_DELAY, self.__resumeTraining)
 
     def __resumeTraining(self):
         self.__outputConsole.printToConsole("Training resumed")
         self.__continueTraining = True
+        self.__carHasDeslotted = False
         self.__lapTimes = []
-        # self.__curClosestTrackLoc = None
         self.__trainingFrame.showStopButton()
         self.__hardwareController.startReading()
+        self.__trainer.reset()
         self.__startMovingCarAt(SLOW_ANGLE)
         self.__master.after(SMALL_TIME_DELAY, self.__doTrainingLoop) # allow time for the car to start moving
 

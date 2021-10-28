@@ -25,7 +25,7 @@ class QAgent:
     
     def calcInstantReward(self, speed, lapsCompleted, carHasDeslotted): # need to pass in car data, so called separatelly to trian
         if carHasDeslotted:
-            return - 1000000
+            return - 1000
         return (speed*0.1) + (lapsCompleted*10) 
     
     def train(self, curState, nextState, action, instantReward):
@@ -33,22 +33,25 @@ class QAgent:
         if not (self.__qTable.checkStateIsValid(curState) and 
                 self.__qTable.checkStateIsValid(nextState) and 
                 self.__qTable.checkActionIsValid(action)):
-            return False
+            return False, "Failed To Train"
         # calculating new QValue
         oldValue = (1-self.__LEARNING_RATE) * self.__qTable.getQValue(curState, action)
         discountedOptimalFutureReward = self.__DISCOUNT_FACTOR * self.__qTable.getMaxQValueOfState(nextState)
         learnedValue = instantReward + discountedOptimalFutureReward
         newQValue = oldValue + (self.__LEARNING_RATE * learnedValue)
-        # updating the table
-        self.__qTable.updateAt(curState, action, newQValue)
+        # updating the table:
+        writeData = self.__qTable.updateAt(curState, action, newQValue)
         self.__successfulTrainingIterations += 1
-        print("training iteration:", self.__successfulTrainingIterations)
         self.reduceProbToExplore()
-        return True
+        # generating feedback string:
+        feedback = f"Training iteration:{self.__successfulTrainingIterations}\n" 
+        feedback += f"New P(explore): {self.__probabilityToExplore}\n"
+        feedback += writeData
+        return True, feedback
 
     def reduceProbToExplore(self):
-        self.__probabilityToExplore *= 0.9999
-        print("new prob to explore = ", self.__probabilityToExplore)
+        self.__probabilityToExplore *= 0.99
+        
         
     def writeTable(self):
         self.__qTable.writeQTableToFile()
