@@ -6,14 +6,15 @@ from time import time
 from math import sqrt
 from heapq import nsmallest
 
+
 class CameraInput:
     def __init__(self) -> None:
         self.__GREEN_RANGE = self.__validateColourRange(GREEN_RANGE)
         self.__ORANGE_RANGE = self.__validateColourRange(ORANGE_RANGE)
         self.__BLUE_RANGE = self.__validateColourRange(BLUE_RANGE)
         
-        self.__GREEN = 0
-        self.__ORANGE = 1
+        if NUM_TRACK_LOCATIONS < 2:
+            raise ValueError("Camera", "The number of track locations must be greater than 2")
         
         self.__cameraFeed = cv.VideoCapture(1)
         self.__backgroundSubtractor = cv.createBackgroundSubtractorMOG2(detectShadows=False)
@@ -63,7 +64,10 @@ class CameraInput:
         # uint8 uses 8 bits to store integer from 0->255: perfect for BGR colour values
         return np.array(colourRange, dtype="uint8")
     
-    
+    def close(self):
+        self.__cameraFeed.release()
+        
+        
 # ==================== Validation Routine ========================================
     def __gatherSampleFrames(self) -> list:
         frames = []
@@ -103,10 +107,10 @@ class CameraInput:
             
             # detect blobs and save their (x, y) coords in a dictionary
             for loc in self.__detector.detect(greenMask):
-                locationsFound[(int(loc.pt[0]), int(loc.pt[1]))] = self.__GREEN
+                locationsFound[(int(loc.pt[0]), int(loc.pt[1]))] = TRACK_STRAIGHT
                 
             for loc in self.__detector.detect(orangeMask):
-                locationsFound[(int(loc.pt[0]), int(loc.pt[1]))] = self.__ORANGE
+                locationsFound[(int(loc.pt[0]), int(loc.pt[1]))] = TRACK_TURN
                 
             # save and break out the loop if we've found them all    
             if len(locationsFound) == NUM_TRACK_LOCATIONS:
@@ -174,7 +178,7 @@ class CameraInput:
         success, frame = self.__cameraFeed.read()
         timeOfMeasurement = time()
         if not success:
-            return INVALID, INVALID
+            return INVALID
         
         # generate mask
         foreGroundMask = self.__backgroundSubtractor.apply(frame)
@@ -186,38 +190,73 @@ class CameraInput:
     def __pixelsToMillimeters(self, distancePixels: float) -> float:
         return distancePixels * MILLIMETERS_PER_PIXEL
     
-    def __calcDistanceMillimeters(self, startCoords: tuple, endCoords: tuple) -> float:
+    def __calcDistancePixels(self, startCoords: tuple, endCoords: tuple) -> float:
         xDistancePixels = endCoords[0] - startCoords[0]
         yDistancePixels = endCoords[1] - startCoords[1]
         distancePixels = sqrt((xDistancePixels**2) + (yDistancePixels**2))
-        return self.__pixelsToMillimeters(distancePixels)
+        return distancePixels
             
     def __getCarSpeed(self, startCoords: tuple, endCoords: tuple, timeSeconds: float) -> float:
-        distanceMillimeters = self.__calcDistanceMillimeters(startCoords, endCoords)
+        distanceMillimeters = self.__pixelsToMillimeters(self.__calcDistancePixels(startCoords,
+                                                                                   endCoords))
         return distanceMillimeters / timeSeconds
         
-    def __getNextTrackLocationInfo(startCoords: tuple, endCoords: tuple) -> tuple:
-        pass         
+    def __getNextTrackLocationInfo(self, carStartCoords: tuple, carEndCoords: tuple) -> tuple:
+        # get the initial distance of the car from each track location
+        distancePixelsFromEachLocation = {}
+        for location in self.__trackLocations:
+            distancePixels = self.__calcDistancePixels(carStartCoords, location)
+            distancePixelsFromEachLocation[location] = distancePixels
             
-                
+        # get the initial 2 closest track locations
+        # self.__trackLocations is guaranteed to be populated with NUM_TRACK_LOCATIONS locations
+        # (validation routine) and NUM_TRACK_LOCATIONS >= 2, (checked for in the constructor)
+        # hence exception handling is not required, as nsmallest(2,...) will always return 2 values
+        location1, location2 = nsmallest(2, distancePixelsFromEachLocation,
+                                        key=distancePixelsFromEachLocation.get)
+        
+        
+        # check which location has their distance decreasing (next location)
+        newLocation1Distance = self.__calcDistancePixels(carEndCoords, location1)
+        newLocation2Distance = self.__calcDistancePixels(carEndCoords, location2)
+        deltaDistance1 = newLocation1Distance - distancePixelsFromEachLocation[location1]
+        deltaDistance2 = newLocation2Distance - distancePixelsFromEachLocation[location2]
+        if deltaDistance1 < deltaDistance2:
+            return location1, self.__pixelsToMillimeters(newLocation1Distance) 
+        else:
+            return location2, self.__pixelsToMillimeters(newLocation2Distance) 
+              
     def getCarInfo(self):
         info = {}
-        startCoords, startTime = self.__getCarLocation()
-        if startCoords is INVALID:
+        returnInfo = self.__getCarLocation()
+        if returnInfo is INVALID:
             return INVALID
+        else:
+            startCoords, startTime = returnInfo
         
-        endCoords, endTime = self.__getCarLocation()
-        if endCoords is INVALID:
+        returnInfo = self.__getCarLocation()
+        if returnInfo is INVALID:
             return INVALID
+        else:
+            endCoords, endTime = returnInfo
         
         ellapsedTimeSeconds = endTime - startTime
         
+        trackLocationInfo = self.__getNextTrackLocationInfo(startCoords, endCoords)
+        if trackLocationInfo is INVALID:
+            return INVALID
+        else:
+            nextTrackLocationCoords, nextTrackLocationDistMillimeters = trackLocationInfo
+        
+        # store data neatly to be returned
         info["location"] = endCoords
         info["speed"] = self.__getCarSpeed(startCoords, endCoords, ellapsedTimeSeconds)
         info["timeOfMeasurement"] = endTime
-        
-        
-        
+        info["nextTrackLocation"] = nextTrackLocationCoords
+        info["nextTrackLocationDistanceMillimeters"] = nextTrackLocationDistMillimeters
+        info["nextTrackLocationType"] = self.__trackLocations[nextTrackLocationCoords]
+        return info
+          
         
 if __name__ == '__main__':
     c = CameraInput()
