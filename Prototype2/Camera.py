@@ -9,12 +9,13 @@ from heapq import nsmallest
 
 class CameraInput:
     def __init__(self) -> None:
+        # redefine as they are converted to np arrays
         self.__GREEN_RANGE = self.__validateColourRange(GREEN_RANGE)
         self.__ORANGE_RANGE = self.__validateColourRange(ORANGE_RANGE)
         self.__BLUE_RANGE = self.__validateColourRange(BLUE_RANGE)
         
         if NUM_TRACK_LOCATIONS < 2:
-            raise ValueError("Camera", "The number of track locations must be greater than 2")
+            raise ValueError("Camera", "The number of track locations must be at least 2")
         
         self.__cameraFeed = cv.VideoCapture(1)
         self.__backgroundSubtractor = cv.createBackgroundSubtractorMOG2(detectShadows=False)

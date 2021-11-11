@@ -2,7 +2,7 @@
 
 DEBUG = True
 
-# UI
+# User Interface
 WINDOW_SIZE = (650,500)
 BG_COLOUR = "#FFFFFF"
 RED = "#FF0000"
@@ -29,7 +29,7 @@ NUM_TRACK_LOCATIONS = 6
 NUM_CAR_PIXELS_RANGE = [3500, 5500] # optimum car pixels ~= 4200
 ZOOM_DEPTH = 4
 ZOOM_PERCENTAGE = 0.5
-MILLIMETERS_PER_PIXEL = 2000 / 1432 # track is 2m = 2000mm wide. track is x pixels wide on the camera
+MILLIMETERS_PER_PIXEL = 2000 / 1432 # track is 2000mm wide. track is 1432 pixels wide on the camera
 
 
 # Harware
@@ -51,8 +51,8 @@ SLOW_ANGLE = 62
 
 
 # Q Learning
-QLEARNING_PARAMS = {"learningRate": 0.5,      
-                    "discountFactor": 0.05,     
-                    "probabilityToExplore": 1,
-                    "stateShape": [[0, 0, 0], [1, 99, 999], [1, 30, 100]],
-                    "actionShape": [54, 76, 2]}
+LEARNING_RATE = 0.5
+DISCOUNT_FACTOR = 0.05 
+STARTING_PROBABILITY_TO_EXPLORE = 1
+STATE_SHAPE = [[0, 0, 0], [1, 99, 999], [1, 30, 100]]
+ACTION_SHAPE = [54, 76, 2]
