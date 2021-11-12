@@ -50,17 +50,17 @@ class CameraInput:
                       0-255 which is perfect for BGR colour values
         """
         if len(colourRange) != 2:
-            raise ValueError("Camera", f"ColourRange: {colourRange} doesn't have length 2")
+            raise ValueError("Camera", f"ColourRange: '{colourRange}' doesn't have length 2")
         for bound in colourRange: 
             for colourValue in bound:
                 try:
                     colourValue = int(colourValue)
                 except ValueError:
-                    raise ValueError("Camera", f"ColourValue: {colourValue} in "+
-                                               f"colourRange: {colourRange} is not an integer")
+                    raise ValueError("Camera", f"ColourValue: '{colourValue}' in "+
+                                               f"colourRange: '{colourRange}' is not an integer")
                 if not 0 <= colourValue <= 255:
-                    raise ValueError("Camera", f"ColourValue: {colourValue} in "+
-                                               f"colourRange: {colourRange} is "+
+                    raise ValueError("Camera", f"ColourValue: '{colourValue}' in "+
+                                               f"colourRange: '{colourRange}' is "+
                                                 "not between 0 -> 255")
         # uint8 uses 8 bits to store integer from 0->255: perfect for BGR colour values
         return np.array(colourRange, dtype="uint8")
