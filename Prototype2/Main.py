@@ -1,8 +1,11 @@
 from Constants import *
 from UserInterfaceComponents import *
+from Camera import *
+from QAgent import *
+from Hardware import *
 
 import tkinter as tk
-
+from serial.serialutil import SerialException
 
 class FormulAI:
     def __init__(self, master: tk.Tk) -> None:
@@ -32,7 +35,17 @@ class FormulAI:
         self.__currentFrame = self.__startFrame
         
         # initializing my other Modules
-        pass
+        try:
+            self.__camera = CameraInput()
+            self.__qAgent = QAgent()
+            self.__hardware = HardwareController()
+            
+        except ValueError as error:
+            self.__startFrame.raiseError(f"{error.args[0]} Error: {error.args[1]}")
+            
+        except SerialException:
+            self.__startFrame.raiseError("SerialException: The serial port is not connected")
+            
     
     # ==================== Public Methods ========================================             
     def showCurrentFrame(self) -> None:
@@ -80,6 +93,11 @@ class FormulAI:
         self.showCurrentFrame()
         self.__validationFrame.setStatuses([True for x in range(4)])
         
+    def __stopTraining(self):
+        pass
+    
+    def __resumeTraining(self):
+        pass    
 
         
         
