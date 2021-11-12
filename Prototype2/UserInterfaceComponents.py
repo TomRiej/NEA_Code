@@ -82,7 +82,7 @@ class StartFrame(MyFrame):
             errorMessage (str): the message that needs to be shown to the user
         """
         self.__errorHasOccured = True
-        self._infoMessage.config(text="\n"+errorMessage+"\n\n",
+        self._infoMessage.config(text="\n   "+errorMessage+"    \n\n",
                                  fg=RED)
         self.showContent()
         
