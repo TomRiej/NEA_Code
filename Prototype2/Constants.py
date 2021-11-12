@@ -27,8 +27,6 @@ TRACK_TURN = 1
 SAMPLE_ITERATIONS = 50
 NUM_TRACK_LOCATIONS = 6
 NUM_CAR_PIXELS_RANGE = [3500, 5500] # optimum car pixels ~= 4200
-ZOOM_DEPTH = 4
-ZOOM_PERCENTAGE = 0.5
 MILLIMETERS_PER_PIXEL = 2000 / 1432 # track is 2000mm wide. track is 1432 pixels wide on the camera
 
 
