@@ -3,9 +3,9 @@
 class HallEffectSensor 
 {
   private:
-    byte pinNumber;
-    byte newState;
-    byte oldState;
+    int pinNumber;
+    int newState;
+    int oldState;
     unsigned long startTime;
     unsigned long endTime;
     bool firstPass; 
@@ -16,7 +16,7 @@ class HallEffectSensor
       firstPass = true;     // no parameters for the constructor
     }
     
-    void setPinNumber(byte pin)
+    void setPinNumber(int pin)
     {
       pinNumber = pin;
       pinMode(pinNumber, INPUT);
