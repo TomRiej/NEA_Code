@@ -40,6 +40,7 @@ class FormulAI:
             self.__camera = CameraInput()
             self.__qAgent = QAgent()
             self.__hardware = HardwareController()
+            self.__master.after(SMALL_TIME_DELAY, self.__hardware.stopCar)
             
         except ValueError as error:
             self.__startFrame.raiseError(f"{error.args[0]} Error: {error.args[1]}")
@@ -71,16 +72,19 @@ class FormulAI:
             self.__outputConsole.showConsole()
             self.showCurrentFrame()
             
-            # set up for training
+            self.__setupTraining()
+            self.__master.after(SMALL_TIME_DELAY, self.__resumeTraining)
             
         else:
             self.__endProgram()
             
     def manualDeslot(self, event) -> None:
         if self.__currentFrame == self.__trainingFrame:
-            # self.__carHasDeslotted = True
+            self.__carHasDeslotted = True
             self.__outputConsole.printToConsole("Manual Deslot input:"+
                                                 "You say the car has deslotted")
+            self.__stopTraining()
+
             
 
 
@@ -100,6 +104,8 @@ class FormulAI:
         
         if safeToClose:
             print("\n\n***** Closing *****\n")
+            print("Stopping car...")
+            self.__hardware.stopCar()
             print("Closing Serial Ports...")
             self.__hardware.closeSerial()
             print("Releasing Camera Input...")
@@ -115,7 +121,7 @@ class FormulAI:
             angle (int): the angle that the car should start to move in
         """
         self.__hardware.setServoAngle(SERVO_RANGE[1])
-        self.__master.after(350, self.__hardware.setServoAngle(angle))
+        self.__master.after(350, self.__hardware.setServoAngle, angle)
                 
     # ==================== Validation Routine
     def __setupValidationRoutine(self) -> None:
@@ -189,26 +195,121 @@ class FormulAI:
             self.__statuses[2] = [numCameraLocations == NUM_TRACK_LOCATIONS,
                                   numCameraLocations]
         
+    # ==================== Validation Routine
+    def __setupTraining(self) -> None:
+        self.__hardware.stopCar()
+        self.__hardware.startMeasuringLapTimes()
         
+    def __resumeTraining(self) -> None:
+        print("resume button pressed")
+        self.__outputConsole.printToConsole("Training resumed")
+        self.__contineTraining = True
+        self.__carHasDeslotted = False
+        self.__lapTimes = []
+        self.__trainingFrame.showStopButton()
+        self.__hardware.resetSensorActivations()
+        self.__hardware.startReadingSerial()
+        self.__startMovingCar(SLOW_ANGLE)
+        # create a new thread for the training loop as it requires time 
+        self.__trainingLoopThread = Thread(target=self.__doTrainingLoop)
+        self.__master.after(SMALL_TIME_DELAY, self.__trainingLoopThread.start)   
         
+    def __doTrainingLoop(self) -> None: # REFINE update reward and dont need to pass in again
+        # Update the User Interface
+        self.showCurrentFrame()
+        self.__updateGraph()
         
+        # training iteration
+        carStateAndSpeed = self.__getCarStateAndSpeed()
+        if carStateAndSpeed is not INVALID:
+            initialState, initialSpeed = carStateAndSpeed
+            action = self.__qAgent.decideAction(initialState)
+            if action is not INVALID:
+                self.__hardware.setServoAngle(int(action))
+                startTime = time()
+                while time() - startTime < WAITING_TIME_FOR_ACTION:
+                    # waiting time doing nothing
+                    pass
+                carStateAndSpeed = self.__getCarStateAndSpeed()
+                if carStateAndSpeed is not INVALID:
+                    endState, endSpeed = carStateAndSpeed
+                    reward = self.__qAgent.getUpdatedReward((initialSpeed + endSpeed) / 2,
+                                                            len(self.__lapTimes),
+                                                            self.__carHasDeslotted)
+                    success = self.__qAgent.train(initialState,
+                                                  endState,
+                                                  action,
+                                                  reward)
+                    if success:
+                        self.__outputConsole.printToConsole("Trained:\n"+
+                                f"Training Iteration: {self.__qAgent.getNumTrainingIterations()}\n"+
+                                f"P(Explore): {self.__qAgent.getProbabilityToExplore()}\n"+
+                                f"Initial State: {initialState}\n"+
+                                f"Action Chosen: {action}\n"+
+                                f"Final State: {endState}\n"+
+                                f"Deslotted: {self.__carHasDeslotted}\n"+
+                                f"Total Reward: {reward}\n\n")
+                    else:
+                        self.__outputConsole.printToConsole("failed to train")
+                
+            
+            
+        # handle INVALIDs
         
-        
-        
-        
-        
+        # loop
+        if self.__contineTraining and not self.__carHasDeslotted:
+            self.__master.after(REFRESH_AFTER, self.__doTrainingLoop)
+        else:
+            self.__outputConsole.printToConsole("Training stopped")
+            self.__hardware.stopCar()
         
         
     def __stopTraining(self):
-        pass
+        self.__contineTraining = False
+        self.__trainingLoopThread.join()
+        self.__hardware.stopReadingSerial()
+        self.__hardware.stopCar()
+        self.__trainingFrame.showResumeButton()
+        
     
-    def __resumeTraining(self):
-        pass    
-
+    def __updateGraph(self) -> None:
+        newLapTime = self.__hardware.getNewLapTime()
+        if newLapTime != EMPTY:
+            self.__lapTimes.append(newLapTime)
+            self.__trainingFrame.updateGraph(enumerate(self.__lapTimes))
         
+    def __getCarStateAndSpeed(self) -> tuple:
+        carInfo = self.__camera.getCarInfo()
+        validatedCarSpeed = self.__getValidatedCarSpeed(carInfo)
         
+        if validatedCarSpeed is INVALID:
+            return INVALID
         
+        # formatting the state 0-00-000
+        severity = str(carInfo["nextTrackLocationType"])
+        # rounding distance to nearest cm -> 2 digit number
+        distance = "{:02d}".format(int((carInfo["nextTrackLocationDistanceMillimeters"]+5)/10))
+        # rounding speed to nearest cm/s -> 3 digit number
+        speed = "{:03d}".format(int((carInfo["speed"]+5)/10))
+        return f"{severity}{distance}{speed}", carInfo["speed"]
         
+    def __getValidatedCarSpeed(self, cameraInfo: dict) -> float:
+        hallSensorInfo = self.__hardware.getCarInfo()
+        if hallSensorInfo is EMPTY:
+            return cameraInfo["speed"]
+        
+        timeBetweenMeasurements = abs(cameraInfo["timeOfMeasurement"] 
+                                      - hallSensorInfo["timeOfMeasurement"])
+        if timeBetweenMeasurements < MAX_TIME_BETWEEN_MEASUREMENTS:
+            cameraSpeed = cameraInfo["speed"]
+            hallSpeed = hallSensorInfo["speed"]
+            self.__outputConsole.printToConsole(f"comparing: hall:{hallSpeed}"+
+                                                f"vs camera:{cameraSpeed}")
+            if (cameraSpeed < hallSpeed-HALL_VS_CAMERA_SPEED_TOLERANCE or 
+                cameraSpeed > hallSpeed+HALL_VS_CAMERA_SPEED_TOLERANCE):
+                return INVALID
+            return (cameraSpeed + hallSpeed) / 2
+        return cameraInfo["speed"]
         
         
         

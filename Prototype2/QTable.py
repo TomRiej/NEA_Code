@@ -10,7 +10,7 @@ class QTable:
         self.__validateStateAndActionShape()
         
         self.__stateIterationsPerCatagory = [len(range(STATE_SHAPE[0][x],
-                                                       STATE_SHAPE[1][x],
+                                                       STATE_SHAPE[1][x]+1,
                                                        STATE_SHAPE[2][x])) for x in range(3)]
         
         self.__allActions = [str(x) for x in range(ACTION_SHAPE[0],
@@ -209,9 +209,12 @@ class QTable:
     
     # def test(self):
     #     allstates = self.__getallStatesFromShape(STATE_SHAPE)
-    #     t = "177232"
+    #     t = "034265"
     #     i = self.__stateToIndex(t)
+    #     print(len(self.__data[0]))
+    #     print(len(allstates))
     #     print(t, allstates[i])
+    #     # print(self.__data[4, i])
         
         
     

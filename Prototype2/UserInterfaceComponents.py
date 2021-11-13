@@ -197,25 +197,22 @@ class ValidationFrame(MyFrame):
                 elif i == 1:
                     pixels = allStatuses[i][1]
                     if pixels < NUM_CAR_PIXELS_RANGE[0]:
-                        feedbackString += f"Not enough moving pixels to recognise a car:\
-                                            {pixels} pixels\n"
+                        feedbackString += ("Not enough moving pixels to recognise a car: "+
+                                            f"{pixels} pixels\n")
                     else:
-                        feedbackString += f"Too many moving pixels to recognise a car: \
-                                            {pixels} pixels\n"     
+                        feedbackString += ("Too many moving pixels to recognise a car: "+
+                                            f"{pixels} pixels\n")     
                 elif i == 2:
-                    tempStr = f"Not all track locations can be found by the camera:\n\
-                                {allStatuses[2][1]} / {NUM_TRACK_LOCATIONS} found\n"
-                    feedbackString += tempStr
+                    feedbackString += ("Not all track locations can be found by the camera:\n"+
+                                        f"{allStatuses[2][1]} / {NUM_TRACK_LOCATIONS} found\n")
                 elif i == 3:
-                    tempStr = f"Not all hall sensors gave an input:\n\
-                                {allStatuses[3][1]} / {NUM_HALL_SENSORS} found\n"
-                    feedbackString += tempStr
+                    feedbackString += ("Not all hall sensors gave an input:\n"+
+                                        f"{allStatuses[3][1]} / {NUM_HALL_SENSORS} found\n")
                     
         if self.__allValid:
             self.showFeedback("All inputs are valid!\n", GREEN)       
         else:
-            self.showFeedback(feedbackString+"Please do the necessary fixes",
-                              RED)
+            self.showFeedback(feedbackString+"Please do the necessary fixes", RED)
         
     def updateTimoutAfter(self, info):
         """method to show a timeout countdown if needed
@@ -292,12 +289,12 @@ class TrainingFrame(MyFrame):
         self.__myPlot = self.__fig.add_subplot(111)
         self.__canvasGraph = None
         
-    def showStopButton(self):
+    def showStopButton(self) -> None:
         self.__stopAndResumeButton.config(text="STOP",
                                           fg=RED,
                                           command=self.__stopFunc)
         
-    def showResumeButton(self):
+    def showResumeButton(self) -> None:
         self.__stopAndResumeButton.config(text="Resume",
                                           fg=GREEN,
                                           command=self.__resumeFunc)

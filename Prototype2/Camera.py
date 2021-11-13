@@ -88,7 +88,7 @@ class CameraInput:
         for frame in sampleFrames:
             foregroundMask = self.__backgroundSubtractor.apply(frame)
             foregroundMask = cv.blur(foregroundMask, (5, 5))
-            totalPixels += len(np.where(foregroundMask == 255))
+            totalPixels += len(np.where(foregroundMask == 255)[0])
         
         # prevent division by 0 error
         if len(sampleFrames) > 0:
@@ -166,6 +166,7 @@ class CameraInput:
         
 
 # ==================== Training ========================================
+    @staticmethod
     def __calcAverageLocation(mask: np.array) -> tuple: # TEST
         xCoords, yCoords = np.where(mask == 255)
         

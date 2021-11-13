@@ -81,7 +81,7 @@ class HardwareController:
             lineAsString = lineAsBytes.decode(self.__ENCODING)
             if lineAsString != EMPTY:
                 sensorNumber, timeMillis = lineAsString.split(" ")
-                self.__mostRecentSensorActivated = int(sensorNumber)
+                self.__mostRecentSensorActivated = sensorNumber
                 self.__speed = self.__calcSpeed(float(timeMillis))
                 if self.__measureLapTimes and sensorNumber == START_FINISH_SENSOR_NUMBER:
                     if len(self.__sensorActivations) == NUM_HALL_SENSORS:

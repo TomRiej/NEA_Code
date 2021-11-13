@@ -122,8 +122,13 @@ class QAgent:
         self.__updateQTable(currentState, action, newQValue)
         self.__successfulTrainingIterations += 1
         self.__updateProbabilityToExplore()
-        
         return True
+    
+    def getNumTrainingIterations(self) -> int:
+        return self.__successfulTrainingIterations
+    
+    def getProbabilityToExplore(self) -> float:
+        return self.__probabilityToExplore
     
     
 if __name__ == '__main__':
