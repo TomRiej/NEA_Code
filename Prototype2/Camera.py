@@ -23,14 +23,6 @@ class CameraInput:
         
         self.__trackLocations = {}
         
-        success, measurementFrame = self.__cameraFeed.read()
-        if success:
-            self.__IMAGE_WIDTH = measurementFrame.shape[1]
-            self.__IMAGE_HEIGHT = measurementFrame.shape[0]
-        else:
-            raise ValueError("Camera", "Could not use camera feed to read a frame")
-        
-        
 # ==================== General ========================================
     @staticmethod  
     def __validateColourRange(colourRange: list) -> np.array:
@@ -175,7 +167,7 @@ class CameraInput:
         else:
             return INVALID
 
-    def __getCarLocation(self) -> tuple:
+    def __getCarLocationAndTimeOfMeasurement(self) -> tuple:
         # get measurement frame and time of measurement
         success, frame = self.__cameraFeed.read()
         timeOfMeasurement = time()
@@ -187,7 +179,10 @@ class CameraInput:
         foreGroundMask = cv.blur(foreGroundMask, (5,5))
         
         # find car in mask
-        return self.__calcAverageLocation(foreGroundMask), timeOfMeasurement
+        carLocation = self.__calcAverageLocation(foreGroundMask)
+        if carLocation is INVALID:
+            return INVALID
+        return carLocation, timeOfMeasurement
         
     def __pixelsToMillimeters(self, distancePixels: float) -> float:
         return distancePixels * MILLIMETERS_PER_PIXEL
@@ -230,13 +225,13 @@ class CameraInput:
               
     def getCarInfo(self):
         info = {}
-        returnInfo = self.__getCarLocation()
+        returnInfo = self.__getCarLocationAndTimeOfMeasurement()
         if returnInfo is INVALID:
             return INVALID
         else:
             startCoords, startTime = returnInfo
         
-        returnInfo = self.__getCarLocation()
+        returnInfo = self.__getCarLocationAndTimeOfMeasurement()
         if returnInfo is INVALID:
             return INVALID
         else:
