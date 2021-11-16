@@ -85,10 +85,6 @@ class FormulAI:
                                                 "You say the car has deslotted")
             self.__stopTraining()
 
-            
-
-
-
     # ==================== Private Methods ========================================
     # ==================== General
     def __endProgram(self) -> None:
@@ -143,7 +139,7 @@ class FormulAI:
         self.__validationRoutineIsActive = True
         self.__validationFrame.showFeedback("Validation routine executing...\nPlease wait", BLUE)
         
-        # Creating a new Thread for validating the Hall sensors
+        # Creating a new Thread for validating the Hall sensors so both happen near-simulatenously
         hallSensorValidationThread = Thread(target=self.__validateHallSensors)
         hallSensorValidationThread.start()
         
@@ -195,13 +191,12 @@ class FormulAI:
             self.__statuses[2] = [numCameraLocations == NUM_TRACK_LOCATIONS,
                                   numCameraLocations]
         
-    # ==================== Validation Routine
+    # ==================== Training
     def __setupTraining(self) -> None:
         self.__hardware.stopCar()
         self.__hardware.startMeasuringLapTimes()
         
     def __resumeTraining(self) -> None:
-        print("resume button pressed")
         self.__outputConsole.printToConsole("Training resumed")
         self.__contineTraining = True
         self.__carHasDeslotted = False
@@ -210,7 +205,7 @@ class FormulAI:
         self.__hardware.resetSensorActivations()
         self.__hardware.startReadingSerial()
         self.__startMovingCar(SLOW_ANGLE)
-        # create a new thread for the training loop as it requires time 
+        # create a new thread for the training loop as it requires waiting time for actions
         self.__trainingLoopThread = Thread(target=self.__doTrainingLoop)
         self.__master.after(SMALL_TIME_DELAY, self.__trainingLoopThread.start)   
         
@@ -226,35 +221,44 @@ class FormulAI:
             action = self.__qAgent.decideAction(initialState)
             if action is not INVALID:
                 self.__hardware.setServoAngle(int(action))
+                # cannot use time.sleep as it will affect the GUI
                 startTime = time()
                 while time() - startTime < WAITING_TIME_FOR_ACTION:
                     # waiting time doing nothing
                     pass
                 carStateAndSpeed = self.__getCarStateAndSpeed()
                 if carStateAndSpeed is not INVALID:
-                    endState, endSpeed = carStateAndSpeed
-                    reward = self.__qAgent.getUpdatedReward((initialSpeed + endSpeed) / 2,
+                    finalState, finalSpeed = carStateAndSpeed
+                    reward = self.__qAgent.getUpdatedReward((initialSpeed + finalSpeed) / 2,
                                                             len(self.__lapTimes),
                                                             self.__carHasDeslotted)
                     success = self.__qAgent.train(initialState,
-                                                  endState,
+                                                  finalState,
                                                   action,
                                                   reward)
                     if success:
                         self.__outputConsole.printToConsole("Trained:\n"+
-                                f"Training Iteration: {self.__qAgent.getNumTrainingIterations()}\n"+
-                                f"P(Explore): {self.__qAgent.getProbabilityToExplore()}\n"+
-                                f"Initial State: {initialState}\n"+
-                                f"Action Chosen: {action}\n"+
-                                f"Final State: {endState}\n"+
-                                f"Deslotted: {self.__carHasDeslotted}\n"+
-                                f"Total Reward: {reward}\n\n")
+                            f"Training Iteration: {self.__qAgent.getNumTrainingIterations()}\n"+
+                            f"P(Explore): {self.__qAgent.getProbabilityToExplore()}\n"+
+                            f"Initial State: {initialState}\n"+
+                            f"Action Chosen: {action}\n"+
+                            f"Final State: {finalState}\n"+
+                            f"Deslotted: {self.__carHasDeslotted}\n"+
+                            f"Total Reward: {reward}\n\n")
                     else:
-                        self.__outputConsole.printToConsole("failed to train")
-                
-            
-            
-        # handle INVALIDs
+                        self.__outputConsole.printToConsole("Failed to train: Initial Or Final "+
+                                                            "state was invalid when training")
+                else:
+                    self.__outputConsole.printToConsole("Failed to train: Couldn't get final "+
+                        "state as camera speed was not in range of hall sensor speed or the "+
+                        "camera is not working")
+            else:
+                self.__outputConsole.printToConsole("Failed to train: Action could not be "+
+                    "decided as the initial state was invalid")
+        else:
+            self.__outputConsole.printToConsole("Failed to train: Couldn't get initial state "+
+                "as camera speed was not in range of hall sensor speed or the camera is "+
+                "not working")
         
         # loop
         if self.__contineTraining and not self.__carHasDeslotted:
@@ -263,25 +267,25 @@ class FormulAI:
             self.__outputConsole.printToConsole("Training stopped")
             self.__hardware.stopCar()
         
-        
-    def __stopTraining(self):
+    def __stopTraining(self) -> None:
         self.__contineTraining = False
         self.__trainingLoopThread.join()
         self.__hardware.stopReadingSerial()
         self.__hardware.stopCar()
         self.__trainingFrame.showResumeButton()
         
-    
     def __updateGraph(self) -> None:
         newLapTime = self.__hardware.getNewLapTime()
-        if newLapTime != EMPTY:
+        if newLapTime is not EMPTY:
             self.__lapTimes.append(newLapTime)
             self.__trainingFrame.updateGraph(enumerate(self.__lapTimes))
         
     def __getCarStateAndSpeed(self) -> tuple:
         carInfo = self.__camera.getCarInfo()
-        validatedCarSpeed = self.__getValidatedCarSpeed(carInfo)
+        if carInfo is INVALID:
+            return INVALID
         
+        validatedCarSpeed = self.__getValidatedCarSpeed(carInfo)
         if validatedCarSpeed is INVALID:
             return INVALID
         
