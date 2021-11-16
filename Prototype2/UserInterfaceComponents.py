@@ -140,7 +140,7 @@ class ValidationFrame(MyFrame):
         are working as expected.\n""")
         
         # my requirements only require 4 statuses, so i've coded this section specifically to
-        # fulfill four requirements only.
+        # fulfill this.
         self.__statuses = [StatusLabel(self, "Input from iPhone camera"),
                            StatusLabel(self, "Car is seen by the camera"),
                            StatusLabel(self, "Track is seen by the camera"),
@@ -214,7 +214,7 @@ class ValidationFrame(MyFrame):
         else:
             self.showFeedback(feedbackString+"Please do the necessary fixes", RED)
         
-    def updateTimoutAfter(self, info):
+    def updateTimoutAfter(self, info) -> None:
         """method to show a timeout countdown if needed
 
         Args:
@@ -230,7 +230,7 @@ class ValidationFrame(MyFrame):
         else:
             self.__timeoutLabel.config(text="Timeout After: "+info+"\n")
 
-    def showFeedback(self, feedbackString: str, colour: str):
+    def showFeedback(self, feedbackString: str, colour: str) -> None:
         """method to modify the label showing the user's feedback
 
         Args:
