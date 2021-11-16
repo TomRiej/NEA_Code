@@ -59,7 +59,7 @@ class HardwareController:
         return DISTANCE_BETWEEN_MAGNETS / (timeMillis/1000) if timeMillis != 0 else 0.0
     
     def getNewLapTime(self) -> int: # REFINE
-        if self.__mostRecentLapTime != EMPTY:
+        if self.__mostRecentLapTime is not EMPTY:
             tempLapTime = self.__mostRecentLapTime
             self.__mostRecentLapTime = EMPTY
             return tempLapTime
