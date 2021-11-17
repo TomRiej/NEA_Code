@@ -10,6 +10,11 @@ from time import time
 
 class FormulAI:
     def __init__(self, master: tk.Tk) -> None:
+        """The constructor for my main module
+
+        Args:
+            master (tk.Tk): the tkinter GUI's root window
+        """
         self.__master = master
         
         # formatting the window
@@ -51,13 +56,20 @@ class FormulAI:
     
     # ==================== Public Methods ========================================             
     def showCurrentFrame(self) -> None:
+        """Using polymorphism to show the frame which is currently active
+        """
         self.__currentFrame.pack()
-        # polymorphism
         self.__currentFrame.showContent()
         
     def changeToNextFrame(self) -> None:
+        """This function is called each time the user presses a button that leads them to the 
+        next frame. It is responsible for calling functions which do four things:
+        1. Deleting the old frame
+        2. Setting the next frame as the current frame
+        3. Setting up the next frames functionality
+        4. calling the fuction that will perform the frames functionality.
+        """
         if self.__currentFrame == self.__startFrame:
-            # change the UI frame
             self.__currentFrame.delete()
             self.__currentFrame = self.__validationFrame
             self.showCurrentFrame()
@@ -66,7 +78,6 @@ class FormulAI:
             self.__master.after(SMALL_TIME_DELAY, self.__doValidationRoutine)
         
         elif self.__currentFrame == self.__validationFrame:
-            # change the UI frame
             self.__currentFrame.delete()
             self.__currentFrame = self.__trainingFrame
             self.__outputConsole.showConsole()
@@ -79,6 +90,11 @@ class FormulAI:
             self.__endProgram()
             
     def manualDeslot(self, event) -> None:
+        """the function that is called everytime the spacebar is pressed to handle manual deslots
+
+        Args:
+            event (tk.event): argument automatically passed in when binded to a button (unused)
+        """
         if self.__currentFrame == self.__trainingFrame:
             self.__carHasDeslotted = True
             self.__outputConsole.printToConsole("Manual Deslot input:"+
@@ -88,15 +104,23 @@ class FormulAI:
     # ==================== Private Methods ========================================
     # ==================== General
     def __endProgram(self) -> None:
+        """Checks if there are any active threads that need to be stopped before the
+        program can terminate. If it is safe to close, then it closes everything properly
+        before destroying the window.
+        """
         safeToClose = True
         
+        # must use isinstance(): self.__validationFrame could be destroyed so cannot compare
         if isinstance(self.__currentFrame, ValidationFrame):
             if self.__validationRoutineIsActive:
                 tk.messagebox.showwarning("Closing Error", "Cannot terminate program, as the "+
                                         "validation thread is still running. "+
                                         "\nPlease wait for the timeout.")
                 safeToClose = False
-    
+        
+        if isinstance(self.__currentFrame, TrainingFrame):
+            print("Stopping Training")
+            self.__stopTraining()
         
         if safeToClose:
             print("\n\n***** Closing *****\n")
@@ -121,10 +145,17 @@ class FormulAI:
                 
     # ==================== Validation Routine
     def __setupValidationRoutine(self) -> None:
+        """performing the necessary operations that need to be done before running the
+        validation routine for the first time.
+        """
         self.__validationRoutineIsActive = False
         self.__startMovingCar(SLOW_ANGLE)
     
     def __doValidationRoutine(self) -> None:
+        """starts a thread which will validate all the inputs in the background of the GUI.
+        It only opens a thread if the validation routine isn't already active. If it is, it 
+        prevents the user from starting a new thread.
+        """
         if self.__validationRoutineIsActive:
             tk.messagebox.showwarning("Retry Error", "Couldn't restart the validation routine "+
                                                     "as it is already active. Please wait for "+
@@ -136,6 +167,11 @@ class FormulAI:
             validationRoutineThread.start()
             
     def __validateAllInputs(self) -> None:
+        """Calls the relevant functions that will validate the camera and hall sensors 
+        simulateously. It does this by starting a new thread to validate the hall threads, 
+        and using the current thread to validate the camera input. After the validation is done,
+        it updates the UI to show the results.
+        """
         self.__validationRoutineIsActive = True
         self.__validationFrame.showFeedback("Validation routine executing...\nPlease wait", BLUE)
         
@@ -154,6 +190,10 @@ class FormulAI:
         self.showCurrentFrame()
             
     def __validateHallSensors(self) -> None:
+        """starts reading from hall sensors and validates that the number of hall sensors
+        activations is equal to the number of hall sensors on the track. After it either times out,
+        or finds all the sensors, it will save the resuts to the statuses list.
+        """
         # reset any measurements from before and start to read incoming data
         self.__hardware.resetSensorActivations()
         self.__hardware.startReadingSerial()
@@ -182,6 +222,12 @@ class FormulAI:
         self.__validationFrame.updateTimoutAfter("complete")
            
     def __validateCameraInput(self) -> None:
+        """checks if the camera is connected first. If the camera is connected, continue to 
+        validate that the car and track locations can be seen. The results are saved into the
+        statuses list. To find the car, I'm finding the number of moving pixels in the frame. This
+        allows me to diffentiate between too many moving pixels (other moving things in the frame)
+        and too little moving pixels (car can't be found)
+        """
         self.__statuses[0] = self.__camera.checkCameraConnected()
         # only perform the rest of the validation if the camera is actually connected
         if self.__statuses[0]:
@@ -193,10 +239,16 @@ class FormulAI:
         
     # ==================== Training
     def __setupTraining(self) -> None:
+        """perform the necessary operations that need to be done before running the training loop 
+        for the first time.
+        """
         self.__hardware.stopCar()
         self.__hardware.startMeasuringLapTimes()
         
     def __resumeTraining(self) -> None:
+        """the method that will reset all the values required for the training loop, then start
+        the training loop.
+        """
         self.__outputConsole.printToConsole("Training resumed")
         self.__contineTraining = True
         self.__carHasDeslotted = False
@@ -210,6 +262,11 @@ class FormulAI:
         self.__master.after(SMALL_TIME_DELAY, self.__trainingLoopThread.start)   
         
     def __doTrainingLoop(self) -> None: # REFINE update reward and dont need to pass in again
+        """the is the method that is repeatedly called to train the agent. It performs the entire
+        training algorithm by calling all the relevant methods to get states, decide actions,
+        calculate rewards, and update the Q table. If anything unexpected goes wrong, it will let
+        the user know via the output console. 
+        """
         # Update the User Interface
         self.showCurrentFrame()
         self.__updateGraph()
@@ -268,6 +325,8 @@ class FormulAI:
             self.__hardware.stopCar()
         
     def __stopTraining(self) -> None:
+        """performs the necessary operations to stop the training loop.
+        """
         self.__contineTraining = False
         self.__trainingLoopThread.join()
         self.__hardware.stopReadingSerial()
@@ -275,12 +334,22 @@ class FormulAI:
         self.__trainingFrame.showResumeButton()
         
     def __updateGraph(self) -> None:
+        """checks if there is a new laptime available from the hardware module. If there is a new
+        laptime, it will call the relevant functions to update the UI graph with the new info.
+        """
         newLapTime = self.__hardware.getNewLapTime()
         if newLapTime is not EMPTY:
             self.__lapTimes.append(newLapTime)
             self.__trainingFrame.updateGraph(enumerate(self.__lapTimes))
         
     def __getCarStateAndSpeed(self) -> tuple:
+        """uses the camera info to get new information on the car. It tries to validate the speed
+        using the hall sensor values. It then formats the information into a 6 digit state string.
+        it returns both the state, and the speed, so that the speed can be used to calculate reward.
+
+        Returns:
+            tuple: the state and the speed (millimeters per second)
+        """
         carInfo = self.__camera.getCarInfo()
         if carInfo is INVALID:
             return INVALID
@@ -298,6 +367,16 @@ class FormulAI:
         return f"{severity}{distance}{speed}", carInfo["speed"]
         
     def __getValidatedCarSpeed(self, cameraInfo: dict) -> float:
+        """tries to validate the camera speed against the hall sensor speed if their measurements
+        were taken at near the same time. 
+
+        Args:
+            cameraInfo (dict): the full dictionary with the cars information
+
+        Returns:
+            float: returns the average speed of the hall sensors and camera if possible, 
+                    otherwise, just the camera speed.
+        """
         hallSensorInfo = self.__hardware.getCarInfo()
         if hallSensorInfo is EMPTY:
             return cameraInfo["speed"]
