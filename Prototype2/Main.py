@@ -340,7 +340,7 @@ class FormulAI:
         newLapTime = self.__hardware.getNewLapTime()
         if newLapTime is not EMPTY:
             self.__lapTimes.append(newLapTime)
-            self.__trainingFrame.updateGraph(enumerate(self.__lapTimes))
+            self.__trainingFrame.updateGraph(self.__lapTimes)
         
     def __getCarStateAndSpeed(self) -> tuple:
         """uses the camera info to get new information on the car. It tries to validate the speed
