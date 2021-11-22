@@ -6,9 +6,14 @@ from random import random
 
 class QAgent:
     def __init__(self) -> None:
+        """initialises attibutes needed for the QAgent like total reward and the QTable
+
+        Raises:
+            ValueError: if MAX_EXPLORING_ITERATIONS is 0, as it would cause a division by 0 error
+            if left unchecked.
+        """
         # any arbitrary starting reward should work
         self.__totalReward = 2000.0
-        
         self.__successfulTrainingIterations = 0
         
         if not MAX_EXPLORING_ITERATIONS > 0:
@@ -20,7 +25,7 @@ class QAgent:
         
     # ==================== Private ======================================== 
     def __calcNewQValue(self, currentState:str, nextState:str, action:str, reward:float) -> float:
-        """uses the Q value formula to calculate the new QValue using the states, action
+        """uses the QValue formula to calculate the new QValue using the states, action
         and reward passed in.
 
         Args:
@@ -37,16 +42,6 @@ class QAgent:
         learnedValue = reward + discountedOptimalFutureReward
         newQValue = oldValue + (LEARNING_RATE * learnedValue)
         return newQValue
-        
-    def __updateQTable(self, state: str, action: str, newQValue: float) -> None:
-        """updates the QTable at the specified location with the specified value
-
-        Args:
-            state (str): the 6 digit state string (assumed to be valid)
-            action (str): the action string (guaranteed to be valid)
-            newQValue (float): the new Q value that needs to be written
-        """
-        self.__qTable.update(state, action, newQValue)
     
     @staticmethod
     def __getPToExplore(numTrainingIters: int) -> float:
@@ -119,15 +114,27 @@ class QAgent:
             return False
         
         newQValue = self.__calcNewQValue(currentState, nextState, action, reward)
-        self.__updateQTable(currentState, action, newQValue)
+        self.__qTable.update(currentState, action, newQValue)
         self.__successfulTrainingIterations += 1
         self.__updateProbabilityToExplore()
         return True
     
     def getNumTrainingIterations(self) -> int:
+        """getter method for the user interface so it can display the number of 
+        training iterations to the user.
+
+        Returns:
+            int: the number of successful training iterations.
+        """
         return self.__successfulTrainingIterations
     
     def getProbabilityToExplore(self) -> float:
+        """getter method for the user interface so it can
+        display the current probability to explore.
+
+        Returns:
+            float: the current probability to explore
+        """
         return self.__probabilityToExplore
     
     

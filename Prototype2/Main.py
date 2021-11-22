@@ -261,7 +261,7 @@ class FormulAI:
         self.__trainingLoopThread = Thread(target=self.__doTrainingLoop)
         self.__master.after(SMALL_TIME_DELAY, self.__trainingLoopThread.start)   
         
-    def __doTrainingLoop(self) -> None: # REFINE update reward and dont need to pass in again
+    def __doTrainingLoop(self) -> None: 
         """the is the method that is repeatedly called to train the agent. It performs the entire
         training algorithm by calling all the relevant methods to get states, decide actions,
         calculate rewards, and update the Q table. If anything unexpected goes wrong, it will let

@@ -6,9 +6,14 @@ from random import choice
 
 class QTable:
     def __init__(self) -> None:
+        """starts by validating the constants for state and action shapes. From this, 
+        the number of rows and column can be calculated and an emtpy numpy array can be
+        initialised for my QTable.
+        """
         # validate the constants (raises ValueError if invalid)
         self.__validateStateAndActionShape()
         
+        # state iterations per catagory is needed for O(1) mapping between states and indices.
         self.__stateIterationsPerCatagory = [len(range(STATE_SHAPE[0][x],
                                                        STATE_SHAPE[1][x]+1,
                                                        STATE_SHAPE[2][x])) for x in range(3)]
@@ -94,7 +99,7 @@ class QTable:
             was recently obtained via getRandomAction or getActionWithMaxQValue and not modified)
 
         Returns:
-            int: the indec of that action (row) in the __data numpy array
+            int: the index of that action (row) in the __data numpy array
         """
         return (int(action) - ACTION_SHAPE[0]) // ACTION_SHAPE[2]        
           
@@ -109,15 +114,13 @@ class QTable:
         Returns:
             int: the index of that state (column) in the __data numpy array
         """
-        index = 0
         itersOfSeverity = (int(state[0]) - STATE_SHAPE[0][0]) // STATE_SHAPE[2][0]
-        index += itersOfSeverity * np.product(self.__stateIterationsPerCatagory[1:])
+        index = itersOfSeverity * np.product(self.__stateIterationsPerCatagory[1:])
         itersOfDistance = (int(state[1:3]) - STATE_SHAPE[0][1]) // STATE_SHAPE[2][1]
         index += itersOfDistance * self.__stateIterationsPerCatagory[2]
         index += (int(state[-3:]) - STATE_SHAPE[0][2]) // STATE_SHAPE[2][2]
         return index
-      
-              
+             
     # ==================== Public ========================================
     @staticmethod
     def validateState(state: str) -> bool:
