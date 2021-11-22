@@ -315,7 +315,6 @@ class CameraInput:
         Returns:
             dict: all the information collected into this dictionary.
         """
-        info = {}
         # getCarLocationAndTimeOfMeasurement doesn't always return 2 values so I cant use:
         # startCoords, startTime = getCarLocationsAndTimeOfMeasurement() as it will cause an error.
         returnInfo = self.__getCarLocationAndTimeOfMeasurement()
@@ -337,13 +336,14 @@ class CameraInput:
             nextTrackLocationCoords, nextTrackLocationDistMillimeters = trackLocationInfo
         
         # store data neatly to be returned
-        info["location"] = endCoords
-        info["speed"] = self.__getCarSpeed(startCoords, endCoords, (endTime - startTime))
-        info["timeOfMeasurement"] = endTime
-        info["nextTrackLocation"] = nextTrackLocationCoords
-        info["nextTrackLocationDistanceMillimeters"] = nextTrackLocationDistMillimeters
-        info["nextTrackLocationType"] = self.__trackLocations[nextTrackLocationCoords]
-        return info
+        return {
+            "location": endCoords,
+            "speed": self.__getCarSpeed(startCoords, endCoords, (endTime - startTime)),
+            "timeOfMeasurement": endTime,
+            "nextTrackLocation": nextTrackLocationCoords,
+            "nextTrackLocationDistanceMillimeters": nextTrackLocationDistMillimeters,
+            "nextTrackLocationType": self.__trackLocations[nextTrackLocationCoords]
+        }
           
         
 if __name__ == '__main__':
