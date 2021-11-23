@@ -27,8 +27,38 @@ class QTable:
         # dtype can be experimented with if i need more/less precision
         self.__data  = np.zeros((numRows, numCols), dtype="float32")
 
-
     # ==================== Private ========================================    
+    @staticmethod              
+    def __actionToIndex(action: str) -> int:
+        """maps the action onto the correct index in my QTable in constant time complexity
+
+        Args:
+            action (str): the action that is guarenteed to be valid: (action passed into here
+            was recently obtained via getRandomAction or getActionWithMaxQValue and not modified)
+
+        Returns:
+            int: the index of that action (row) in the __data numpy array
+        """
+        return (int(action) - ACTION_SHAPE[0]) // ACTION_SHAPE[2]        
+          
+    def __stateToIndex(self, state: str) -> int:
+        """maps the state onto the correct index in my QTable in constant time complexity
+
+        Args:
+            state (str): the 6 digit state that is assumed to be valid (should be validated
+            before being passed into here) The program won't crash if the state is invalid,
+            but the returned index may not be accurate.
+
+        Returns:
+            int: the index of that state (column) in the __data numpy array
+        """
+        itersOfSeverity = (int(state[0]) - STATE_SHAPE[0][0]) // STATE_SHAPE[2][0]
+        index = itersOfSeverity * np.product(self.__stateIterationsPerCatagory[1:])
+        itersOfDistance = (int(state[1:3]) - STATE_SHAPE[0][1]) // STATE_SHAPE[2][1]
+        index += itersOfDistance * self.__stateIterationsPerCatagory[2]
+        index += (int(state[-3:]) - STATE_SHAPE[0][2]) // STATE_SHAPE[2][2]
+        return index
+    
     @staticmethod
     def __validateStateAndActionShape() -> None:
         """Validates the STATE_SHAPE and ACTION_SHAPE constants for all conditions
@@ -88,71 +118,22 @@ class QTable:
                                         f"upper bound '{ACTION_SHAPE[1]}' (action shape)")
         if not ACTION_SHAPE[2] > 0:
             raise ValueError("QTable", "incrementor in action shape must be > 0: "+
-                                        f"'{ACTION_SHAPE[2]}'")
-    
-    @staticmethod              
-    def __actionToIndex(action: str) -> int:
-        """maps the action onto the correct index in my QTable in constant time complexity
-
-        Args:
-            action (str): the action that is guarenteed to be valid: (action passed into here
-            was recently obtained via getRandomAction or getActionWithMaxQValue and not modified)
-
-        Returns:
-            int: the index of that action (row) in the __data numpy array
-        """
-        return (int(action) - ACTION_SHAPE[0]) // ACTION_SHAPE[2]        
-          
-    def __stateToIndex(self, state: str) -> int:
-        """maps the state onto the correct index in my QTable in constant time complexity
-
-        Args:
-            state (str): the 6 digit state that is assumed to be valid (should be validated
-            before being passed into here) The program won't crash if the state is invalid,
-            but the returned index may not be accurate.
-
-        Returns:
-            int: the index of that state (column) in the __data numpy array
-        """
-        itersOfSeverity = (int(state[0]) - STATE_SHAPE[0][0]) // STATE_SHAPE[2][0]
-        index = itersOfSeverity * np.product(self.__stateIterationsPerCatagory[1:])
-        itersOfDistance = (int(state[1:3]) - STATE_SHAPE[0][1]) // STATE_SHAPE[2][1]
-        index += itersOfDistance * self.__stateIterationsPerCatagory[2]
-        index += (int(state[-3:]) - STATE_SHAPE[0][2]) // STATE_SHAPE[2][2]
-        return index
-             
-    # ==================== Public ========================================
-    @staticmethod
-    def validateState(state: str) -> bool:
-        """validates the state passed in agains the state shape constant to make sure it is
-        within all the upper and lower bounds
-
-        Args:
-            state (str): the 6 digit state string
-
-        Returns:
-            bool: True if the state is valid, False otherwise
-        """
-        if not STATE_SHAPE[0][0] <= int(state[0]) <= STATE_SHAPE[1][0]:
-            return False
-        elif not STATE_SHAPE[0][1] <= int(state[1:3]) <= STATE_SHAPE[1][1]:
-            return False
-        elif not STATE_SHAPE[0][2] <= int(state[-3:]) <= STATE_SHAPE[1][2]:
-            return False
-        return True
-            
-    def getQValue(self, state: str, action: str) -> float:
-        """returns the QValue at the specified state and action location on the Qtable
+                                        f"'{ACTION_SHAPE[2]}'")  
+                   
+    # ==================== Public ======================================== 
+    def getActionWithMaxQValue(self, state: str) -> str:
+        """returns the valid action string which has the highest QValue assosiated with it for
+        the specified state.
 
         Args:
             state (str): the 6 digit state string (assumed to be valid)
-            action (str): the action (guaranteed to be valid)
 
         Returns:
-            float: the QValue
+            str: the action string with the highest Qvalue assosiated with it
         """
-        return self.__data[self.__actionToIndex(action),
-                           self.__stateToIndex(state)]
+        # argmax() returns a list of indices with the maximum values assosiated with them along
+        # a given axis: 0 for columns. Then we index into the action we're interested in
+        return self.__allActions[self.__data.argmax(axis=0)[self.__stateToIndex(state)]]
     
     def getMaxQValue(self, state: str) -> float:
         """return the maximum Qvalue of the specified state (coloumn)
@@ -167,20 +148,19 @@ class QTable:
         # then we index this list with to find the max value of the column we're interested in
         return np.amax(self.__data, axis=0)[self.__stateToIndex(state)]
     
-    def getActionWithMaxQValue(self, state: str) -> str:
-        """returns the valid action string which has the highest QValue assosiated with it for
-        the specified state.
+    def getQValue(self, state: str, action: str) -> float:
+        """returns the QValue at the specified state and action location on the Qtable
 
         Args:
             state (str): the 6 digit state string (assumed to be valid)
+            action (str): the action (guaranteed to be valid)
 
         Returns:
-            str: the action string with the highest Qvalue assosiated with it
+            float: the QValue
         """
-        # argmax() returns a list of indices with the maximum values assosiated with them along
-        # a given axis: 0 for columns. Then we index into the action we're interested in
-        return self.__allActions[self.__data.argmax(axis=0)[self.__stateToIndex(state)]]
-
+        return self.__data[self.__actionToIndex(action),
+                           self.__stateToIndex(state)]
+    
     def getRandomAction(self) -> str:
         """returns a random valid action from the QTable
 
@@ -199,6 +179,29 @@ class QTable:
             value (float): the new QValue that needs to be written
         """
         self.__data[self.__actionToIndex(action), self.__stateToIndex(state)] = value
+    
+    @staticmethod
+    def validateState(state: str) -> bool:
+        """validates the state passed in agains the state shape constant to make sure it is
+        within all the upper and lower bounds
+
+        Args:
+            state (str): the 6 digit state string
+
+        Returns:
+            bool: True if the state is valid, False otherwise
+        """
+        if not STATE_SHAPE[0][0] <= int(state[0]) <= STATE_SHAPE[1][0]:
+            return False
+        elif not STATE_SHAPE[0][1] <= int(state[1:3]) <= STATE_SHAPE[1][1]:
+            return False
+        elif not STATE_SHAPE[0][2] <= int(state[-3:]) <= STATE_SHAPE[1][2]:
+            return False
+        return True
+    
+    
+    
+    
     
     # ==================== tests
     # @staticmethod

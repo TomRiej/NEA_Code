@@ -83,8 +83,26 @@ class QAgent:
         if random() < self.__probabilityToExplore:
             return self.__qTable.getRandomAction()
         else:
-            return self.__qTable.getActionWithMaxQValue(state)
-            
+            return self.__qTable.getActionWithMaxQValue(state)  
+    
+    def getNumTrainingIterations(self) -> int:
+        """getter method for the user interface so it can display the number of 
+        training iterations to the user.
+
+        Returns:
+            int: the number of successful training iterations.
+        """
+        return self.__successfulTrainingIterations
+    
+    def getProbabilityToExplore(self) -> float:
+        """getter method for the user interface so it can
+        display the current probability to explore.
+
+        Returns:
+            float: the current probability to explore
+        """
+        return self.__probabilityToExplore
+    
     def getUpdatedReward(self, speed: float, lapsCompleted: int, carHasDeslotted: bool) -> float:
         """ The reward function for my QAgent. It calculates the new total reward based on the
         information passed in:
@@ -119,23 +137,7 @@ class QAgent:
         self.__updateProbabilityToExplore()
         return True
     
-    def getNumTrainingIterations(self) -> int:
-        """getter method for the user interface so it can display the number of 
-        training iterations to the user.
-
-        Returns:
-            int: the number of successful training iterations.
-        """
-        return self.__successfulTrainingIterations
     
-    def getProbabilityToExplore(self) -> float:
-        """getter method for the user interface so it can
-        display the current probability to explore.
-
-        Returns:
-            float: the current probability to explore
-        """
-        return self.__probabilityToExplore
     
     
 if __name__ == '__main__':

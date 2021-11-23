@@ -68,58 +68,7 @@ class CameraInput:
         """
         self.__cameraFeed.release()
         
-        
 # ==================== Validation Routine ========================================
-    def __gatherSampleFrames(self) -> list:
-        """a method that will take SAMPLE_ITERATIONS number of frames from the camera and 
-        return them as a list. If there is an issue with gathering frames, it return INVALID
-
-        Returns:
-            list: the collection of frames gathered
-        """
-        frames = []
-        for _ in range(SAMPLE_ITERATIONS):
-            success, frame = self.__cameraFeed.read()
-            if not success:
-                return INVALID
-            frames.append(frame)
-        return frames
-    
-    def __trainBackground(self, trainingFrames: list) -> None:
-        """trains the background subtractor module on the list of camera frames passed in.
-
-        Args:
-            trainingFrames (list): a collection of SAMPLE_ITERATIONS frames from the camera
-        """
-        for frame in trainingFrames:
-            self.__backgroundSubtractor.apply(frame)
-    
-    def __getAverageNumCarPixels(self, sampleFrames: list) -> int:
-        """calculates the average number of moving pixels in the sampleFrames, which can later
-        be used to validate if the car is seen.
-        
-
-        Args:
-            sampleFrames (list): a list of frames from the camera
-
-        Returns:
-            int: returns a value for the mean number of pixels as an integer.
-        """
-        totalPixels = 0
-        for frame in sampleFrames:
-            foregroundMask = self.__backgroundSubtractor.apply(frame)
-            foregroundMask = cv.blur(foregroundMask, (5, 5))
-            # we need to index '[0]' as np.where returns list format: [[all,the,xs], [all,the,ys]]
-            # len([all,the,xs]) will be the number of moving pixels.
-            # positive pixels are represented with value 255 which is white.
-            totalPixels += len(np.where(foregroundMask == 255)[0])
-        
-        # prevent division by 0 error
-        if len(sampleFrames) > 0:
-            return totalPixels // len(sampleFrames)
-        else:
-            return 0
-    
     def __findAndSaveTrackLocations(self, sampleFrames: list) -> int:
         """uses a blob detector and the defined colour ranges to try find all the track locations
         in the sample frames. If they're all found, they are saved.
@@ -156,6 +105,56 @@ class CameraInput:
             return len(locationsFound)
         else:
             return 0
+
+    def __gatherSampleFrames(self) -> list:
+        """a method that will take SAMPLE_ITERATIONS number of frames from the camera and 
+        return them as a list. If there is an issue with gathering frames, it return INVALID
+
+        Returns:
+            list: the collection of frames gathered
+        """
+        frames = []
+        for _ in range(SAMPLE_ITERATIONS):
+            success, frame = self.__cameraFeed.read()
+            if not success:
+                return INVALID
+            frames.append(frame)
+        return frames
+    
+    def __getAverageNumCarPixels(self, sampleFrames: list) -> int:
+        """calculates the average number of moving pixels in the sampleFrames, which can later
+        be used to validate if the car is seen.
+        
+
+        Args:
+            sampleFrames (list): a list of frames from the camera
+
+        Returns:
+            int: returns a value for the mean number of pixels as an integer.
+        """
+        totalPixels = 0
+        for frame in sampleFrames:
+            foregroundMask = self.__backgroundSubtractor.apply(frame)
+            foregroundMask = cv.blur(foregroundMask, (5, 5))
+            # we need to index '[0]' as np.where returns list format: [[all,the,xs], [all,the,ys]]
+            # len([all,the,xs]) will be the number of moving pixels.
+            # positive pixels are represented with value 255 which is white.
+            totalPixels += len(np.where(foregroundMask == 255)[0])
+        
+        # prevent division by 0 error
+        if len(sampleFrames) > 0:
+            return totalPixels // len(sampleFrames)
+        else:
+            return 0
+    
+    def __trainBackground(self, trainingFrames: list) -> None:
+        """trains the background subtractor module on the list of camera frames passed in.
+
+        Args:
+            trainingFrames (list): a collection of SAMPLE_ITERATIONS frames from the camera
+        """
+        for frame in trainingFrames:
+            self.__backgroundSubtractor.apply(frame)
         
     def checkCameraConnected(self) -> bool:
         """Checks if the camera is actually sending the live video feed to me. 
@@ -223,6 +222,18 @@ class CameraInput:
         else:
             return INVALID
 
+    def __calcDistancePixels(self, startCoords: tuple, endCoords: tuple) -> float:
+        """uses the 'distance between two points' formula to calculate the distance in pixels
+
+        Args:
+            startCoords (tuple): the x, y pixel location of one point
+            endCoords (tuple): the x, y pixel locations of the other point
+
+        Returns:
+            float: the distance between the two points in pixels
+        """
+        return sqrt(((endCoords[0] - startCoords[0]) ** 2) + ((endCoords[1] - startCoords[1]) ** 2))
+
     def __getCarLocationAndTimeOfMeasurement(self) -> tuple:
         """uses the camera to find the cars location and saves the time when the frame was taken.
 
@@ -241,29 +252,6 @@ class CameraInput:
         if carLocation is INVALID:
             return INVALID
         return carLocation, timeOfMeasurement
-        
-    def __pixelsToMillimeters(self, distancePixels: float) -> float:
-        """uses the constant I defined to convert from pixels to millimeters
-
-        Args:
-            distancePixels (float): the distance in pixels between two points on the camera image
-
-        Returns:
-            float: the distance in millimeters of the real world
-        """
-        return distancePixels * MILLIMETERS_PER_PIXEL
-    
-    def __calcDistancePixels(self, startCoords: tuple, endCoords: tuple) -> float:
-        """uses the 'distance between two points' formula to calculate the distance in pixels
-
-        Args:
-            startCoords (tuple): the x, y pixel location of one point
-            endCoords (tuple): the x, y pixel locations of the other point
-
-        Returns:
-            float: the distance between the two points in pixels
-        """
-        return sqrt(((endCoords[0] - startCoords[0]) ** 2) + ((endCoords[1] - startCoords[1]) ** 2))
             
     def __getCarSpeed(self, startCoords: tuple, endCoords: tuple, timeSeconds: float) -> float:
         """calculates the car's speed in the real world in millimeters per second
@@ -307,6 +295,17 @@ class CameraInput:
             return location1, self.__pixelsToMillimeters(newLocation1Distance) 
         else:
             return location2, self.__pixelsToMillimeters(newLocation2Distance) 
+           
+    def __pixelsToMillimeters(self, distancePixels: float) -> float:
+        """uses the constant I defined to convert from pixels to millimeters
+
+        Args:
+            distancePixels (float): the distance in pixels between two points on the camera image
+
+        Returns:
+            float: the distance in millimeters of the real world
+        """
+        return distancePixels * MILLIMETERS_PER_PIXEL       
               
     def getCarInfo(self) -> dict:
         """calls all the necessary functions to get all the needed information. It stores all

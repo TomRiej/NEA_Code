@@ -67,19 +67,6 @@ class HardwareController:
         self.setServoAngle(SERVO_RANGE[0])
     
     # ==================== Hardware input ======================================== 
-    def getCarInfo(self) -> dict:
-        """returns the car's speed and time of measurement in a dictionary 
-
-        Returns:
-            dict: the information on the car
-        """
-        if self.__mostRecentSensorActivated != EMPTY:
-            return {
-                "speed": self.__speed,
-                "timeOfMeasurement": self.__sensorActivations[self.__mostRecentSensorActivated]
-            }
-        return EMPTY
-    
     def __calcSpeed(self, timeMillis: float) -> float:
         """calculates the speed of the car in millimeters per second
 
@@ -91,34 +78,6 @@ class HardwareController:
         """
         return DISTANCE_BETWEEN_MAGNETS / (timeMillis/1000) if timeMillis != 0 else 0.0
     
-    def getNewLapTime(self) -> float: #CHECK float return
-        """if there is a new laptime, it is returned. Otherwise empty is returned
-
-        Returns:
-            float: the new lap time.
-        """
-        if self.__mostRecentLapTime is not EMPTY:
-            newLapTime = self.__mostRecentLapTime
-            self.__mostRecentLapTime = EMPTY
-            return newLapTime
-        else:
-            return EMPTY
-        
-    def resetSensorActivations(self) -> None:
-        """resets the sensor activations dictionary and most recent sensor activated
-        """
-        self.__sensorActivations = {}
-        self.__mostRecentSensorActivated = EMPTY
-        
-    def getNumSensorsActivated(self) -> int:
-        """method to get the number of sensors activated for the validation frame.
-
-        Returns:
-            int: the number of sensors activated
-        """
-        return len(self.__sensorActivations)    
-    
-    # Read Thread Target
     def __readSerialPort(self) -> None:
         """target method for a thread responible for reading the input from the hall sensors.
         It is responisble for reading the data from the serial port, then converting that from 
@@ -144,6 +103,54 @@ class HardwareController:
                 
                 self.__sensorActivations[sensorNumber] = time()
                 
+    def getCarInfo(self) -> dict:
+        """returns the car's speed and time of measurement in a dictionary 
+
+        Returns:
+            dict: the information on the car
+        """
+        if self.__mostRecentSensorActivated != EMPTY:
+            return {
+                "speed": self.__speed,
+                "timeOfMeasurement": self.__sensorActivations[self.__mostRecentSensorActivated]
+            }
+        return EMPTY
+    
+    def getNewLapTime(self) -> float: #CHECK float return
+        """if there is a new laptime, it is returned. Otherwise empty is returned
+
+        Returns:
+            float: the new lap time.
+        """
+        if self.__mostRecentLapTime is not EMPTY:
+            newLapTime = self.__mostRecentLapTime
+            self.__mostRecentLapTime = EMPTY
+            return newLapTime
+        else:
+            return EMPTY
+    
+    def getNumSensorsActivated(self) -> int:
+        """method to get the number of sensors activated for the validation frame.
+
+        Returns:
+            int: the number of sensors activated
+        """
+        return len(self.__sensorActivations) 
+        
+    def resetSensorActivations(self) -> None:
+        """resets the sensor activations dictionary and most recent sensor activated
+        """
+        self.__sensorActivations = {}
+        self.__mostRecentSensorActivated = EMPTY
+                 
+    def startMeasuringLapTimes(self) -> None:
+        """method to start measuring lap times. 
+        stop measuring lap times isn't needed.
+        """
+        self.__measureLapTimes = True
+        if DEBUG:
+            print("started measuring laptimes")             
+                        
     def startReadingSerial(self) -> None:
         """method to start a thread for reading.
         """
@@ -164,13 +171,7 @@ class HardwareController:
         self.__continueReading = False
         self.__thread.join()
         
-    def startMeasuringLapTimes(self) -> None:
-        """method to start measuring lap times. 
-        stop measuring lap times isn't needed.
-        """
-        self.__measureLapTimes = True
-        if DEBUG:
-            print("started measuring laptimes")
+    
         
             
                 
