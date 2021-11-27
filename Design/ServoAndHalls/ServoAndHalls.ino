@@ -35,8 +35,7 @@ class HallEffectSensor
         } 
         else 
         {
-          endTime = millis();
-          Serial.println(String(pinNumber, DEC)+" "+String(endTime - startTime, DEC)); 
+          Serial.println(String(pinNumber, DEC)+" "+String(millis() - startTime, DEC)); 
           firstPass = true;
         }
       }

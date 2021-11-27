@@ -7,10 +7,12 @@ from Hardware import *
 import tkinter as tk
 from serial.serialutil import SerialException
 from time import time
+from threading import Thread
 
 class FormulAI:
     def __init__(self, master: tk.Tk) -> None:
-        """The constructor for my main module
+        """The constructor for my main module. Initializes all the other modules and formats the
+    	User interface.
 
         Args:
             master (tk.Tk): the tkinter GUI's root window
@@ -53,14 +55,7 @@ class FormulAI:
         except SerialException:
             self.__startFrame.raiseError("SerialException: The serial port is not connected")
             
-    
     # ==================== Public Methods ========================================             
-    def showCurrentFrame(self) -> None:
-        """Using polymorphism to show the frame which is currently active
-        """
-        self.__currentFrame.pack()
-        self.__currentFrame.showContent()
-        
     def changeToNextFrame(self) -> None:
         """This function is called each time the user presses a button that leads them to the 
         next frame. It is responsible for calling functions which do four things:
@@ -69,7 +64,7 @@ class FormulAI:
         3. Setting up the next frames functionality
         4. calling the fuction that will perform the frames functionality.
         """
-        if self.__currentFrame == self.__startFrame:
+        if self.__currentFrame is self.__startFrame:
             self.__currentFrame.delete()
             self.__currentFrame = self.__validationFrame
             self.showCurrentFrame()
@@ -77,7 +72,7 @@ class FormulAI:
             self.__setupValidationRoutine()
             self.__master.after(SMALL_TIME_DELAY, self.__doValidationRoutine)
         
-        elif self.__currentFrame == self.__validationFrame:
+        elif self.__currentFrame is self.__validationFrame:
             self.__currentFrame.delete()
             self.__currentFrame = self.__trainingFrame
             self.__outputConsole.showConsole()
@@ -95,12 +90,18 @@ class FormulAI:
         Args:
             event (tk.event): argument automatically passed in when binded to a button (unused)
         """
-        if self.__currentFrame == self.__trainingFrame:
+        if self.__currentFrame is self.__trainingFrame:
             self.__carHasDeslotted = True
             self.__outputConsole.printToConsole("Manual Deslot input:"+
                                                 "You say the car has deslotted")
             self.__stopTraining()
 
+    def showCurrentFrame(self) -> None:
+            """Using polymorphism to show the frame which is currently active
+            """
+            self.__currentFrame.pack()
+            self.__currentFrame.showContent()
+            
     # ==================== Private Methods ========================================
     # ==================== General
     def __endProgram(self) -> None:
@@ -144,13 +145,6 @@ class FormulAI:
         self.__master.after(350, self.__hardware.setServoAngle, angle)
                 
     # ==================== Validation Routine
-    def __setupValidationRoutine(self) -> None:
-        """performing the necessary operations that need to be done before running the
-        validation routine for the first time.
-        """
-        self.__validationRoutineIsActive = False
-        self.__startMovingCar(SLOW_ANGLE)
-    
     def __doValidationRoutine(self) -> None:
         """starts a thread which will validate all the inputs in the background of the GUI.
         It only opens a thread if the validation routine isn't already active. If it is, it 
@@ -165,6 +159,13 @@ class FormulAI:
             # Threading required: the routine will take some time and GUI can't freeze
             validationRoutineThread = Thread(target=self.__validateAllInputs)
             validationRoutineThread.start()
+    
+    def __setupValidationRoutine(self) -> None:
+        """performing the necessary operations that need to be done before running the
+        validation routine for the first time.
+        """
+        self.__validationRoutineIsActive = False
+        self.__startMovingCar(SLOW_ANGLE)
             
     def __validateAllInputs(self) -> None:
         """Calls the relevant functions that will validate the camera and hall sensors 
@@ -238,30 +239,7 @@ class FormulAI:
                                   numCameraLocations]
         
     # ==================== Training
-    def __setupTraining(self) -> None:
-        """perform the necessary operations that need to be done before running the training loop 
-        for the first time.
-        """
-        self.__hardware.stopCar()
-        self.__hardware.startMeasuringLapTimes()
-        
-    def __resumeTraining(self) -> None:
-        """the method that will reset all the values required for the training loop, then start
-        the training loop.
-        """
-        self.__outputConsole.printToConsole("Training resumed")
-        self.__contineTraining = True
-        self.__carHasDeslotted = False
-        self.__lapTimes = []
-        self.__trainingFrame.showStopButton()
-        self.__hardware.resetSensorActivations()
-        self.__hardware.startReadingSerial()
-        self.__startMovingCar(SLOW_ANGLE)
-        # create a new thread for the training loop as it requires waiting time for actions
-        self.__trainingLoopThread = Thread(target=self.__doTrainingLoop)
-        self.__master.after(SMALL_TIME_DELAY, self.__trainingLoopThread.start)   
-        
-    def __doTrainingLoop(self) -> None: # REFINE update reward and dont need to pass in again
+    def __doTrainingLoop(self) -> None: 
         """the is the method that is repeatedly called to train the agent. It performs the entire
         training algorithm by calling all the relevant methods to get states, decide actions,
         calculate rewards, and update the Q table. If anything unexpected goes wrong, it will let
@@ -323,25 +301,7 @@ class FormulAI:
         else:
             self.__outputConsole.printToConsole("Training stopped")
             self.__hardware.stopCar()
-        
-    def __stopTraining(self) -> None:
-        """performs the necessary operations to stop the training loop.
-        """
-        self.__contineTraining = False
-        self.__trainingLoopThread.join()
-        self.__hardware.stopReadingSerial()
-        self.__hardware.stopCar()
-        self.__trainingFrame.showResumeButton()
-        
-    def __updateGraph(self) -> None:
-        """checks if there is a new laptime available from the hardware module. If there is a new
-        laptime, it will call the relevant functions to update the UI graph with the new info.
-        """
-        newLapTime = self.__hardware.getNewLapTime()
-        if newLapTime is not EMPTY:
-            self.__lapTimes.append(newLapTime)
-            self.__trainingFrame.updateGraph(enumerate(self.__lapTimes))
-        
+    
     def __getCarStateAndSpeed(self) -> tuple:
         """uses the camera info to get new information on the car. It tries to validate the speed
         using the hall sensor values. It then formats the information into a 6 digit state string.
@@ -365,7 +325,7 @@ class FormulAI:
         # rounding speed to nearest cm/s -> 3 digit number
         speed = "{:03d}".format(int((carInfo["speed"]+5)/10))
         return f"{severity}{distance}{speed}", carInfo["speed"]
-        
+    
     def __getValidatedCarSpeed(self, cameraInfo: dict) -> float:
         """tries to validate the camera speed against the hall sensor speed if their measurements
         were taken at near the same time. 
@@ -393,11 +353,47 @@ class FormulAI:
                 return INVALID
             return (cameraSpeed + hallSpeed) / 2
         return cameraInfo["speed"]
+    
+    def __resumeTraining(self) -> None:
+        """the method that will reset all the values required for the training loop, then start
+        the training loop.
+        """
+        self.__outputConsole.printToConsole("Training resumed")
+        self.__contineTraining = True
+        self.__carHasDeslotted = False
+        self.__lapTimes = []
+        self.__trainingFrame.showStopButton()
+        self.__hardware.resetSensorActivations()
+        self.__hardware.startReadingSerial()
+        self.__startMovingCar(SLOW_ANGLE)
+        # create a new thread for the training loop as it requires waiting time for actions
+        self.__trainingLoopThread = Thread(target=self.__doTrainingLoop)
+        self.__master.after(SMALL_TIME_DELAY, self.__trainingLoopThread.start)
+         
+    def __setupTraining(self) -> None:
+        """perform the necessary operations that need to be done before running the training loop 
+        for the first time.
+        """
+        self.__hardware.stopCar()
+        self.__hardware.startMeasuringLapTimes()
+    
+    def __stopTraining(self) -> None:
+        """performs the necessary operations to stop the training loop.
+        """
+        self.__contineTraining = False
+        self.__trainingLoopThread.join()
+        self.__hardware.stopReadingSerial()
+        self.__hardware.stopCar()
+        self.__trainingFrame.showResumeButton()
         
-        
-        
-        
-        
+    def __updateGraph(self) -> None:
+        """checks if there is a new laptime available from the hardware module. If there is a new
+        laptime, it will call the relevant functions to update the UI graph with the new info.
+        """
+        newLapTime = self.__hardware.getNewLapTime()
+        if newLapTime is not EMPTY:
+            self.__lapTimes.append(newLapTime)
+            self.__trainingFrame.updateGraph(self.__lapTimes)
         
 
 if __name__ == '__main__':
