@@ -15,11 +15,11 @@ class QTable:
         
         # state iterations per catagory is needed for O(1) mapping between states and indices.
         self.__stateIterationsPerCatagory = [len(range(STATE_SHAPE[0][x],
-                                                       STATE_SHAPE[1][x]+1,
+                                                       STATE_SHAPE[1][x] + 1,
                                                        STATE_SHAPE[2][x])) for x in range(3)]
         
         self.__allActions = [str(x) for x in range(ACTION_SHAPE[0],
-                                                   ACTION_SHAPE[1]+1,
+                                                   ACTION_SHAPE[1] + 1,
                                                    ACTION_SHAPE[2])]
         
         numCols = np.product(self.__stateIterationsPerCatagory)
@@ -122,16 +122,16 @@ class QTable:
                    
     # ==================== Public ======================================== 
     def getActionWithMaxQValue(self, state: str) -> str:
-        """returns the valid action string which has the highest QValue assosiated with it for
+        """returns the valid action string which has the highest QValue associated with it for
         the specified state.
 
         Args:
             state (str): the 6 digit state string (assumed to be valid)
 
         Returns:
-            str: the action string with the highest Qvalue assosiated with it
+            str: the action string with the highest Qvalue associated with it
         """
-        # argmax() returns a list of indices with the maximum values assosiated with them along
+        # argmax() returns a list of indices with the maximum values associated with them along
         # a given axis: 0 for columns. Then we index into the action we're interested in
         return self.__allActions[self.__data.argmax(axis=0)[self.__stateToIndex(state)]]
     
@@ -145,7 +145,7 @@ class QTable:
             float: the maximum QValue of the column
         """
         # np.amax() returns a list of the maximum values along a given axis: 0 is for columns
-        # then we index this list with to find the max value of the column we're interested in
+        # then we index this list to find the max value of the column we're interested in
         return np.amax(self.__data, axis=0)[self.__stateToIndex(state)]
     
     def getQValue(self, state: str, action: str) -> float:

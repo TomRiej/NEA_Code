@@ -3,7 +3,6 @@ from Constants import *
 import cv2 as cv
 import numpy as np
 from time import time
-from math import sqrt
 from heapq import nsmallest
 
 
@@ -232,7 +231,7 @@ class CameraInput:
         Returns:
             float: the distance between the two points in pixels
         """
-        return sqrt(((endCoords[0] - startCoords[0]) ** 2) + ((endCoords[1] - startCoords[1]) ** 2))
+        return np.sqrt(((endCoords[0] - startCoords[0])**2) + ((endCoords[1] - startCoords[1])**2))
 
     def __getCarLocationAndTimeOfMeasurement(self) -> tuple:
         """uses the camera to find the cars location and saves the time when the frame was taken.

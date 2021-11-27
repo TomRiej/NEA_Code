@@ -56,6 +56,7 @@ class HardwareController:
         """
         if self.angleIsValid(angle):
             if angle != self.__previousServoAngle:
+                # to_bytes(1, ...) converts the integer to a 1 byte representation
                 self.__serialPort.write(angle.to_bytes(1, byteorder="little"))
                 self.__previousServoAngle = angle
         elif DEBUG:
@@ -97,7 +98,7 @@ class HardwareController:
                 # check if the car has passed the finish line and if we should measure lap times
                 if self.__measureLapTimes and sensorNumber == START_FINISH_SENSOR_NUMBER:
                     # only measure a laptime if all the sensors have been activated at least once
-                    # after a reset: ensure timestamps in __sensorActivaions are since the reset.
+                    # after a reset: ensure timestamps in __sensorActivations are since the reset.
                     if self.getNumSensorsActivated() == NUM_HALL_SENSORS:
                         self.__mostRecentLapTime = time() - self.__sensorActivations[sensorNumber]
                 

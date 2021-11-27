@@ -60,7 +60,8 @@ class StartFrame(MyFrame):
                                    height=100)
         
         image = Image.open(PATH+LOGO_NAME)
-        self.__canvasForImage.image = ImageTk.PhotoImage(image.resize(self.__IMAGESIZE, Image.ANTIALIAS))
+        self.__canvasForImage.image = ImageTk.PhotoImage(image.resize(self.__IMAGESIZE,
+                                                                      Image.ANTIALIAS))
         self.__canvasForImage.create_image(WINDOW_SIZE[0]//2, 50,
                                     image=self.__canvasForImage.image)
         
@@ -225,9 +226,9 @@ class ValidationFrame(MyFrame):
                 self.__allValid = False
                 # this would've been a nice place to use a switch-case statement,
                 # however Python hasn't added these natively yet.
-                if i is 0:
+                if i == 0:
                     feedbackString += "There is no input from the camera\n"
-                elif i is 1:
+                elif i == 1:
                     pixels = allStatuses[i][1]
                     if pixels < NUM_CAR_PIXELS_RANGE[0]:
                         feedbackString += ("Not enough moving pixels to recognise a car: "+
@@ -235,10 +236,10 @@ class ValidationFrame(MyFrame):
                     else:
                         feedbackString += ("Too many moving pixels to recognise a car: "+
                                             f"{pixels} pixels\n")     
-                elif i is 2:
+                elif i == 2:
                     feedbackString += ("Not all track locations can be found by the camera:\n"+
                                         f"{allStatuses[2][1]} / {NUM_TRACK_LOCATIONS} found\n")
-                elif i is 3:
+                elif i == 3:
                     feedbackString += ("Not all hall sensors gave an input:\n"+
                                         f"{allStatuses[3][1]} / {NUM_HALL_SENSORS} found\n")
                     

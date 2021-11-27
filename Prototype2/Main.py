@@ -7,10 +7,12 @@ from Hardware import *
 import tkinter as tk
 from serial.serialutil import SerialException
 from time import time
+from threading import Thread
 
 class FormulAI:
     def __init__(self, master: tk.Tk) -> None:
-        """The constructor for my main module
+        """The constructor for my main module. Initializes all the other modules and formats the
+    	User interface.
 
         Args:
             master (tk.Tk): the tkinter GUI's root window
@@ -62,7 +64,7 @@ class FormulAI:
         3. Setting up the next frames functionality
         4. calling the fuction that will perform the frames functionality.
         """
-        if self.__currentFrame == self.__startFrame:
+        if self.__currentFrame is self.__startFrame:
             self.__currentFrame.delete()
             self.__currentFrame = self.__validationFrame
             self.showCurrentFrame()
@@ -70,7 +72,7 @@ class FormulAI:
             self.__setupValidationRoutine()
             self.__master.after(SMALL_TIME_DELAY, self.__doValidationRoutine)
         
-        elif self.__currentFrame == self.__validationFrame:
+        elif self.__currentFrame is self.__validationFrame:
             self.__currentFrame.delete()
             self.__currentFrame = self.__trainingFrame
             self.__outputConsole.showConsole()
@@ -88,7 +90,7 @@ class FormulAI:
         Args:
             event (tk.event): argument automatically passed in when binded to a button (unused)
         """
-        if self.__currentFrame == self.__trainingFrame:
+        if self.__currentFrame is self.__trainingFrame:
             self.__carHasDeslotted = True
             self.__outputConsole.printToConsole("Manual Deslot input:"+
                                                 "You say the car has deslotted")
@@ -392,15 +394,6 @@ class FormulAI:
         if newLapTime is not EMPTY:
             self.__lapTimes.append(newLapTime)
             self.__trainingFrame.updateGraph(self.__lapTimes)
-        
-    
-        
-    
-        
-        
-        
-        
-        
         
 
 if __name__ == '__main__':

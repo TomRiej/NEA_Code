@@ -10,9 +10,9 @@ GREEN = "#20CC20"
 BLUE = "#0e6cc9"
 FONT = "Verdana"
 PATH = "/Users/Tom/Desktop/Education/CS-A-level/NEA/Media/"
+LOGO_NAME = "FormulAI_Logo.png"
 REFRESH_AFTER = 1 # constantly refresh
 SMALL_TIME_DELAY = 2000 # 2 seconds
-LOGO_NAME = "FormulAI_Logo.png"
 EMPTY = ""
 INVALID = -1
 
@@ -30,7 +30,7 @@ NUM_CAR_PIXELS_RANGE = [3500, 5500] # optimum car pixels ~= 4200
 MILLIMETERS_PER_PIXEL = 2000 / 1432 # track is 2000mm wide. track is 1432 pixels wide on the camera
 
 
-# Harware
+# Hardware
 SERIAL_PORT_NAME = "/dev/tty.usbmodem14101"
 SERIAL_BAUD_RATE = 9600
 SERIAL_READ_TIMEOUT = 0.5
@@ -45,7 +45,7 @@ MAX_TIME_BETWEEN_MEASUREMENTS = 0.05 # s
 
   # Output
 SERVO_RANGE = [30, 90]
-SLOW_ANGLE = 63
+SLOW_ANGLE = 65
 
 
 # Q Learning
@@ -54,4 +54,4 @@ DISCOUNT_FACTOR = 0.9
 MAX_EXPLORING_ITERATIONS = 300
 STATE_SHAPE = [[0, 0, 0], [1, 99, 999], [1, 30, 100]]
 ACTION_SHAPE = [54, 76, 2]
-WAITING_TIME_FOR_ACTION = 1
+WAITING_TIME_FOR_ACTION = 1 # second

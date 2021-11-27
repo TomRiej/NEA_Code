@@ -126,7 +126,18 @@ class QAgent:
         return self.__totalReward
     
     def train(self, currentState: str, nextState: str, action: str, reward: float) -> bool:
-        # validate states passed in
+        """uses the states, actions and reward passed in to update the QTable for this training
+        iteration. Then it calculates the new p(explore). 
+
+        Args:
+            currentState (str): the 6 digit starting state of the car (validation needed)
+            nextState (str): the 6 digit ending state of the car (validation needed)
+            action (str): the action that was taken between the states
+            reward (float): the cumulative reward that that action led to
+
+        Returns:
+            bool: True if the training was successful, False otherwise.
+        """
         if not (self.__qTable.validateState(currentState) and 
                 self.__qTable.validateState(nextState)):
             return False
@@ -144,7 +155,7 @@ if __name__ == '__main__':
     q = QAgent()
     # import matplotlib.pyplot as plt
     
-    ## exponentials Test 1
+    # exponentials Test 1
     # exps = [1-(1e-2),
     #         1-(1e-3),
     #         1-(1e-4),
@@ -171,7 +182,7 @@ if __name__ == '__main__':
     #     plt.plot(xs[i], ys[i], colours[i])
     # plt.show()
     
-    ## cos Test 2
+    # # cos Test 2
     # ITERS = 300
     # def f(x):
     #     if x < ITERS:
