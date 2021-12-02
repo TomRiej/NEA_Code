@@ -61,8 +61,8 @@ class QTable:
     
     @staticmethod
     def __validateStateAndActionShape() -> None:
-        """Validates the STATE_SHAPE and ACTION_SHAPE constants for all conditions
-        mentioned in my requirements
+        """Validates the STATE_SHAPE and ACTION_SHAPE constants so they 
+        allow the format decided in my design section.
 
         Raises:
             ValueError: shape doesn't have valid length 3
