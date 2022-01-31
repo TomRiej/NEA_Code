@@ -117,12 +117,16 @@ class QAgent:
             carHasDeslotted (bool): if the user said the car has deslotted.
 
         Returns:
-            float: the new total reward which will be used to calculate a new Q value.
+            float: the reward gained by this action which will be used to calculate a new Q value.
         """
+        previousReward = self.__totalReward
         if carHasDeslotted:
             self.__totalReward *= 0.5 
         else:
             self.__totalReward += (speed*0.1) + (lapsCompleted*10)
+        return self.__totalReward - previousReward
+    
+    def getTotalReward(self):
         return self.__totalReward
     
     def train(self, currentState: str, nextState: str, action: str, reward: float) -> bool:
@@ -148,11 +152,72 @@ class QAgent:
         self.__updateProbabilityToExplore()
         return True
     
-    
+    def saveQTable(self):
+        self.__qTable.writeTableToFile()
+        
     
     
 if __name__ == '__main__':
-    q = QAgent()
+    from simulation import SimulateTrack
+    qAgent = QAgent()
+    # qAgent.saveQTable()
+    
+    unitTime = 0.2
+    sim = SimulateTrack(unitTime)
+    
+    for i in range(MAX_EXPLORING_ITERATIONS):
+        print(f"Training iteration: {i}     total reward: {qAgent.getTotalReward()}")
+        s1, speed1 = sim.getStateAndSpeed()
+        a1 = qAgent.decideAction(s1)
+        sim.doAction(a1)
+        s2, speed2 = sim.getStateAndSpeed()
+        reward = qAgent.getUpdatedReward((speed1+speed2)/2, 
+                                         sim.getLapsCompleted(), 
+                                         sim.getDeslotted())
+        qAgent.train(s1, s2, a1, reward)
+        if sim.getDeslotted():
+            sim.resetCar()
+            
+    qAgent.saveQTable()
+    
+    # testing the agent
+    sim = SimulateTrack(unitTime)
+    inp = ""
+    i = 0
+    while inp == "":
+        s1, speed1 = sim.getStateAndSpeed()
+        a1 = qAgent.decideAction(s1)
+        sim.doAction(a1)
+        s2, speed2 = sim.getStateAndSpeed()
+        reward = qAgent.getUpdatedReward((speed1+speed2)/2, 
+                                         sim.getLapsCompleted(), 
+                                         sim.getDeslotted())
+        
+        print(f"Testing iteration {i}")
+        i += 1
+        if sim.getDeslotted():
+            print("Deslotted...")
+        print(f"s1: {s1}    action chosen: {a1}     s2: {s2}")
+        print(f"reward: {reward}    LapsCompleted: {sim.getLapsCompleted()}")
+        print(f"Total reward: {qAgent.getTotalReward()}")
+        inp = input(":")
+        
+            
+    
+        
+    
+    """
+    sim = Sim()
+    
+    s1, speed1 = sim.getStateAndSpeed()
+    a1 = qAgent.getAction(s1)
+    sim.doAction(a1)
+    s2, speed = sim.getStateAndSpeed()
+    reward = qAgent.getReward(speed, sim.getLapsCompleted(), sim.getCarDeslotted)
+    qAgent.train(s1, s2, a1, reward)
+    """
+    
+    
     # import matplotlib.pyplot as plt
     
     # exponentials Test 1

@@ -76,6 +76,7 @@ class FormulAI:
             self.__currentFrame.delete()
             self.__currentFrame = self.__trainingFrame
             self.__outputConsole.showConsole()
+            self.__currentFrame.focus_set()
             self.showCurrentFrame()
             
             self.__setupTraining()
@@ -94,7 +95,6 @@ class FormulAI:
             self.__carHasDeslotted = True
             self.__outputConsole.printToConsole("Manual Deslot input:"+
                                                 "You say the car has deslotted")
-            self.__stopTraining()
 
     def showCurrentFrame(self) -> None:
             """Using polymorphism to show the frame which is currently active
@@ -120,8 +120,10 @@ class FormulAI:
                 safeToClose = False
         
         if isinstance(self.__currentFrame, TrainingFrame):
-            print("Stopping Training")
+            print("Stopping Training...")
             self.__stopTraining()
+            if self.__trainingLoopThread.isAlive():
+                self.__trainingLoopThread.join()
         
         if safeToClose:
             print("\n\n***** Closing *****\n")
@@ -300,7 +302,10 @@ class FormulAI:
             self.__master.after(REFRESH_AFTER, self.__doTrainingLoop)
         else:
             self.__outputConsole.printToConsole("Training stopped")
+            self.__hardware.stopReadingSerial()
             self.__hardware.stopCar()
+            self.__trainingFrame.showResumeButton()
+            return
     
     def __getCarStateAndSpeed(self) -> tuple:
         """uses the camera info to get new information on the car. It tries to validate the speed
@@ -381,10 +386,7 @@ class FormulAI:
         """performs the necessary operations to stop the training loop.
         """
         self.__contineTraining = False
-        self.__trainingLoopThread.join()
-        self.__hardware.stopReadingSerial()
-        self.__hardware.stopCar()
-        self.__trainingFrame.showResumeButton()
+        
         
     def __updateGraph(self) -> None:
         """checks if there is a new laptime available from the hardware module. If there is a new

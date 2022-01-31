@@ -49,6 +49,8 @@ class CameraInput:
         if len(colourRange) != 2:
             raise ValueError("Camera", f"ColourRange: '{colourRange}' doesn't have length 2")
         for bound in colourRange: 
+            if len(bound) != 3:
+                raise ValueError("Camera", f"bound: '{bound}' doesn't have length 3")
             for colourValue in bound:
                 try:
                     colourValue = int(colourValue)
@@ -59,6 +61,10 @@ class CameraInput:
                     raise ValueError("Camera", f"ColourValue: '{colourValue}' in "+
                                                f"colourRange: '{colourRange}' is "+
                                                 "not between 0 -> 255")
+        for i in range(3):
+            if colourRange[1][i] < colourRange[0][i]:
+                raise ValueError("Camera", f"upper bound: '{colourRange[1][i]}' cannot be "+
+                                           f"smaller than lower bound: '{colourRange[0][i]}'")
         # uint8 uses 8 bits to store integer from 0->255: perfect for BGR colour values
         return np.array(colourRange, dtype="uint8")
     
@@ -78,6 +84,7 @@ class CameraInput:
         Returns:
             int: the number of track locations found (even if it hasn't found them all)
         """
+        totalLocationsFound = 0
         for frame in sampleFrames:
             locationsFound = {}
             
@@ -94,16 +101,11 @@ class CameraInput:
             for loc in self.__detector.detect(orangeMask):
                 locationsFound[(int(loc.pt[0]), int(loc.pt[1]))] = TRACK_TURN
                 
-            # save and break out the loop if we've found them all    
-            if len(locationsFound) == NUM_TRACK_LOCATIONS:
-                self.__trackLocations = locationsFound
-                break
-        
-        # in case 0 frames are passed in and this raises an error for undefined locationsFound
-        if len(sampleFrames) > 0: 
-            return len(locationsFound)
-        else:
-            return 0
+            totalLocationsFound += len(locationsFound)
+            
+        # return the average rounded to the nearest integer value
+        return int((totalLocationsFound/len(sampleFrames))+0.5)
+    
 
     def __gatherSampleFrames(self) -> list:
         """a method that will take SAMPLE_ITERATIONS number of frames from the camera and 
