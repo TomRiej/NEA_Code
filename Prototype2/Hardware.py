@@ -173,7 +173,25 @@ class HardwareController:
         self.__thread.join()
         
     
-        
+if __name__ == '__main__':
+    from time import sleep
+    controller = HardwareController()
+    controller.stopCar()
+    # sleep(4)
+    # for j in range(10):
+    #     for i in range(60, 80, 5):
+    #         controller.setServoAngle(i)
+    #         sleep(1)
+    # controller.stopCar()
+    
+    sleep(5)
+    for i in range(30, 90, 10):
+        print("angle: ", i)
+        controller.setServoAngle(i)
+        sleep(3)
+    controller.stopCar()
+    
+    
             
                 
                 

@@ -200,6 +200,29 @@ class QTable:
         return True
     
     
+    @staticmethod
+    def __getallStatesFromShape(shape: list) -> list:
+        states = []
+        for s in range(shape[0][0], shape[1][0]+1, shape[2][0]):
+            for d in range(shape[0][1], shape[1][1]+1, shape[2][1]):
+                for v in range(shape[0][2], shape[1][2]+1, shape[2][2]):
+                    states.append(f"{s}{d:02d}{v:03d}")
+        return states
+    
+    def writeTableToFile(self):
+        with open("QTable.txt", "w") as f:
+            allStates = self.__getallStatesFromShape(STATE_SHAPE)
+            f.write("   |  "+",   ".join(allStates))
+            f.write("\n---"+"----------"*len(allStates))
+            for i, action in enumerate(self.__allActions):
+                formatted = []
+                for col in self.__data[i]:
+                    if col >= 0:
+                        formatted.append(f"{col:.2E}")
+                    else:
+                        formatted.append(f"{col:.1E}")
+                        
+                f.write(f"\n{action} | "+"  ".join(formatted))
     
     
     
@@ -228,7 +251,10 @@ class QTable:
 
 
 if __name__ == '__main__':
-    m = QTable()
-    # m.test()
+    table = QTable()
+    
+    for i in range(199999 + 1):
+        state = "{:06d}".format(i)
+        print(f"State {state} validated returns {table.validateState(state)}")
 
     
