@@ -344,7 +344,7 @@ class CameraInput:
             "nextTrackLocationDistanceMillimeters": nextTrackLocationDistMillimeters,
             "nextTrackLocationType": self.__trackLocations[nextTrackLocationCoords]
         }
-          
-        
+
+
 if __name__ == '__main__':
     c = CameraInput()
